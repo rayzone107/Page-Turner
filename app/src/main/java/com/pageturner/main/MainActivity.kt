@@ -1,10 +1,11 @@
-package com.pageturner
+package com.pageturner.main
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.pageturner.core.ui.theme.PageTurnerTheme
+import com.pageturner.navigation.PageTurnerNavGraph
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint

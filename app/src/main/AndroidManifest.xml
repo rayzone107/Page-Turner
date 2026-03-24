@@ -15,7 +15,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.PageTurner">
         <activity
-            android:name=".MainActivity"
+            android:name=".main.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.PageTurner">
             <intent-filter>
