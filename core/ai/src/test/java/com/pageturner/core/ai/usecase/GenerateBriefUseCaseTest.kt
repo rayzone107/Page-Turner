@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 class GenerateBriefUseCaseTest {
 
     @MockK private lateinit var anthropicApiService: AnthropicApiService
+    @MockK private lateinit var rateLimiter: AiRateLimiter
 
     private lateinit var useCase: GenerateBriefUseCase
 
@@ -39,7 +40,8 @@ class GenerateBriefUseCaseTest {
 
     @BeforeEach
     fun setUp() {
-        useCase = GenerateBriefUseCase(anthropicApiService)
+        coEvery { rateLimiter.checkAndRecord() } returns true
+        useCase = GenerateBriefUseCase(anthropicApiService, rateLimiter)
     }
 
     @Nested
@@ -51,7 +53,7 @@ class GenerateBriefUseCaseTest {
 
             val result = useCase(aBook(), profileSummary = "You love sci-fi epics.")
 
-            assertNotNull(result)
+            assertTrue(result is AiResult.Success)
         }
     }
 
@@ -64,7 +66,7 @@ class GenerateBriefUseCaseTest {
 
             val result = useCase(aBook(), profileSummary = null)
 
-            assertNull(result)
+            assertTrue(result is AiResult.Failed)
         }
     }
 
@@ -77,7 +79,7 @@ class GenerateBriefUseCaseTest {
 
             val result = useCase(aBook(), profileSummary = null)
 
-            assertNull(result)
+            assertTrue(result is AiResult.Failed)
         }
     }
 
@@ -95,7 +97,7 @@ class GenerateBriefUseCaseTest {
 
             val result = useCase(aBook(), profileSummary = null)
 
-            assertNull(result)
+            assertTrue(result is AiResult.Failed)
         }
     }
 }

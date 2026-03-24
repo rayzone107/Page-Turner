@@ -1,8 +1,10 @@
 package com.pageturner.core.ai.usecase
 
+import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Genre
 import com.pageturner.core.domain.model.SwipeDirection
 import com.pageturner.core.domain.model.SwipeEvent
+import com.pageturner.core.domain.service.AiResult
 import com.pageturner.core.network.api.AnthropicApiService
 import com.pageturner.core.network.dto.anthropic.AnthropicContentBlockDto
 import com.pageturner.core.network.dto.anthropic.AnthropicResponseDto
@@ -11,8 +13,6 @@ import io.mockk.coEvery
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
@@ -23,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 class SummarizeProfileUseCaseTest {
 
     @MockK private lateinit var anthropicApiService: AnthropicApiService
+    @MockK private lateinit var rateLimiter: AiRateLimiter
 
     // Moshi.Builder().build() is sufficient — @JsonClass(generateAdapter = true) causes
     // Moshi to auto-discover the KSP-generated adapter by class name convention
@@ -55,16 +56,17 @@ class SummarizeProfileUseCaseTest {
 
     @BeforeEach
     fun setUp() {
-        useCase = SummarizeProfileUseCase(anthropicApiService, moshi)
+        coEvery { rateLimiter.checkAndRecord() } returns true
+        useCase = SummarizeProfileUseCase(anthropicApiService, moshi, rateLimiter)
     }
 
     @Nested
     inner class `when swipe history is empty` {
 
         @Test
-        fun `returns null without making any API call`() = runTest {
+        fun `returns Failed without making any API call`() = runTest {
             val result = useCase(emptyList(), listOf(Genre.FANTASY))
-            assertNull(result)
+            assertTrue(result is AiResult.Failed)
         }
     }
 
@@ -77,9 +79,10 @@ class SummarizeProfileUseCaseTest {
 
             val result = useCase(listOf(aSwipeEvent()), listOf(Genre.FANTASY))
 
-            assertNotNull(result)
-            assertTrue("fantasy" in result!!.likedGenres)
-            assertTrue(result.aiSummary.isNotBlank())
+            assertTrue(result is AiResult.Success)
+            val profile = (result as AiResult.Success).data
+            assertTrue("fantasy" in profile.likedGenres)
+            assertTrue(profile.aiSummary.isNotBlank())
         }
     }
 
@@ -93,7 +96,7 @@ class SummarizeProfileUseCaseTest {
 
             val result = useCase(listOf(aSwipeEvent()), listOf(Genre.FANTASY))
 
-            assertNotNull(result)
+            assertTrue(result is AiResult.Success)
         }
     }
 
@@ -106,7 +109,7 @@ class SummarizeProfileUseCaseTest {
 
             val result = useCase(listOf(aSwipeEvent()), listOf(Genre.FANTASY))
 
-            assertNull(result)
+            assertTrue(result is AiResult.Failed)
         }
     }
 
@@ -119,7 +122,7 @@ class SummarizeProfileUseCaseTest {
 
             val result = useCase(listOf(aSwipeEvent()), listOf(Genre.FANTASY))
 
-            assertNull(result)
+            assertTrue(result is AiResult.Failed)
         }
     }
 }

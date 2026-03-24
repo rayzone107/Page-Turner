@@ -21,7 +21,10 @@ android {
     }
     buildFeatures { compose = true }
     testOptions {
-        unitTests.all { it.useJUnitPlatform() }
+        unitTests {
+            isReturnDefaultValues = true
+            all { it.useJUnitPlatform() }
+        }
     }
 }
 

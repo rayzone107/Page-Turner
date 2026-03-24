@@ -1,5 +1,6 @@
 package com.pageturner.feature.swipedeck
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pageturner.core.domain.error.UiError
@@ -37,6 +38,10 @@ class SwipeDeckViewModel @Inject constructor(
     private val aiService: AiService,
 ) : ViewModel() {
 
+    companion object {
+        private const val TAG = "SwipeDeck"
+    }
+
     private val _state = MutableStateFlow(SwipeDeckUiState())
     val state: StateFlow<SwipeDeckUiState> = _state.asStateFlow()
 
@@ -60,6 +65,14 @@ class SwipeDeckViewModel @Inject constructor(
 
     /** All book keys the user has ever swiped — prevents wildcard repeats. */
     private val seenBookKeys = mutableSetOf<String>()
+
+    /**
+     * Number of regular cards placed since the last wildcard.
+     * When this reaches [nextWildcardGap], the next card becomes a wildcard.
+     * Persisted across interleaveBooks / appendCards calls so spacing stays natural.
+     */
+    private var sinceLastWildcard = 0
+    private var nextWildcardGap = (4..10).random() // first gap
 
     /** Guards against concurrent deck-refresh calls. */
     private var isRefreshingQueue = false
@@ -129,8 +142,12 @@ class SwipeDeckViewModel @Inject constructor(
         if (currentCards.isEmpty()) {
             // ── First build: construct the full deck from scratch ──────────
             val result = interleaveBooks(
-                books, wildcards, profile, profileSummary, profileVersion, startPosition = 0
+                books, wildcards, profile, profileSummary, profileVersion
             )
+
+            Log.d(TAG, "First build: ${result.size} cards, " +
+                    "${result.count { it.isWildcard }} wildcards, " +
+                    "pool=${wildcards.size}")
 
             val topCard = result.firstOrNull()
             _state.update {
@@ -144,22 +161,28 @@ class SwipeDeckViewModel @Inject constructor(
             }
         } else {
             // ── Subsequent update: preserve existing card order ────────────
-            // Only update match scores on existing cards; append truly new books.
             val existingKeys = currentCards.map { it.bookKey }.toSet()
+            val hasWildcardsInDeck = currentCards.any { it.isWildcard }
 
             val updatedExisting = currentCards.map { card ->
                 val subjects = domainBookCache[card.bookKey]?.subjects ?: card.subjects
                 card.copy(matchScore = computeMatchScore(subjects, profile))
             }
 
-            val newBooks = books.filter { it.key !in existingKeys }
-            val newWildcards = wildcards.filter { it.key !in existingKeys }
-            val appended = interleaveBooks(
-                newBooks, newWildcards, profile, profileSummary, profileVersion,
-                startPosition = currentCards.size
-            )
+            // If wildcards just arrived and the deck has none yet, inject them
+            // into the unswiped portion of the existing deck.
+            val result = if (!hasWildcardsInDeck && wildcards.isNotEmpty()) {
+                injectWildcards(updatedExisting, wildcards, profile, profileSummary, profileVersion)
+            } else {
+                // Append truly new books (+ interleaved wildcards) at the end.
+                val newBooks = books.filter { it.key !in existingKeys }
+                val newWildcards = wildcards.filter { it.key !in existingKeys }
+                val appended = interleaveBooks(
+                    newBooks, newWildcards, profile, profileSummary, profileVersion
+                )
+                updatedExisting + appended
+            }
 
-            val result = updatedExisting + appended
             val topCard = result.getOrNull(currentIdx)
             _state.update {
                 it.copy(
@@ -173,8 +196,52 @@ class SwipeDeckViewModel @Inject constructor(
     }
 
     /**
-     * Builds a card list from [books], interleaving a wildcard every 4th position.
-     * Shared by initial build and append paths.
+     * Inserts wildcard cards into the unswiped portion of an existing deck
+     * that was built before the wildcard pool was available.
+     */
+    private fun injectWildcards(
+        existingCards: List<SwipeCardUiModel>,
+        wildcards: List<Book>,
+        profile: TasteProfile?,
+        profileSummary: String?,
+        profileVersion: Int,
+    ): List<SwipeCardUiModel> {
+        val currentIdx = _state.value.currentCardIndex
+        val deckKeys = existingCards.map { it.bookKey }.toMutableSet()
+        val available = wildcards.filter { it.key !in seenBookKeys && it.key !in deckKeys }.toMutableList()
+        if (available.isEmpty()) return existingCards
+
+        val result = existingCards.toMutableList()
+        // Reset wildcard counter — the first build placed zero wildcards.
+        sinceLastWildcard = 0
+        nextWildcardGap = (4..10).random()
+
+        // Walk unswiped cards and insert wildcards at the right intervals.
+        var i = currentIdx
+        while (i < result.size && available.isNotEmpty()) {
+            sinceLastWildcard++
+            if (sinceLastWildcard >= nextWildcardGap) {
+                val wc = available.removeFirst()
+                deckKeys.add(wc.key)
+                domainBookCache[wc.key] = wc
+                val score = computeMatchScore(wc.subjects, profile)
+                val card = wc.toUiModel(isWildcard = true, matchScore = score)
+                result.add(i + 1, card) // insert after current position
+                scheduleBrief(card, profileSummary, profileVersion)
+                sinceLastWildcard = 0
+                nextWildcardGap = (4..10).random()
+                i++ // skip past the wildcard we just inserted
+            }
+            i++
+        }
+
+        Log.d(TAG, "Injected wildcards: ${result.count { it.isWildcard }} wildcards in ${result.size} cards")
+        return result
+    }
+
+    /**
+     * Builds a card list from [books], interleaving a wildcard at random intervals
+     * (every 4–10 regular cards, averaging ~7). Shared by initial build and append paths.
      */
     private fun interleaveBooks(
         books: List<Book>,
@@ -182,7 +249,6 @@ class SwipeDeckViewModel @Inject constructor(
         profile: TasteProfile?,
         profileSummary: String?,
         profileVersion: Int,
-        startPosition: Int,
     ): List<SwipeCardUiModel> {
         val existingCards = _state.value.cards.associateBy { it.bookKey }
         val deckKeys = existingCards.keys.toMutableSet()
@@ -191,13 +257,12 @@ class SwipeDeckViewModel @Inject constructor(
         val result = mutableListOf<SwipeCardUiModel>()
         var regularIdx = 0
         var wildcardIdx = 0
-        var position = startPosition
 
         while (regularIdx < books.size) {
-            position++
-            if (position % 4 == 0 && wildcardIdx < availableWildcards.size) {
+            // Time for a wildcard?
+            if (sinceLastWildcard >= nextWildcardGap && wildcardIdx < availableWildcards.size) {
                 val wc = availableWildcards[wildcardIdx++]
-                deckKeys.add(wc.key) // prevent the same wildcard in a later slot
+                deckKeys.add(wc.key)
                 val score = computeMatchScore(wc.subjects, profile)
                 val card = existingCards[wc.key]?.copy(matchScore = score)
                     ?: wc.toUiModel(isWildcard = true, matchScore = score)
@@ -205,6 +270,8 @@ class SwipeDeckViewModel @Inject constructor(
                 if (existingCards[wc.key]?.aiBrief == null) {
                     scheduleBrief(card, profileSummary, profileVersion)
                 }
+                sinceLastWildcard = 0
+                nextWildcardGap = (4..10).random()
             } else {
                 val book = books[regularIdx++]
                 val score = computeMatchScore(book.subjects, profile)
@@ -214,6 +281,7 @@ class SwipeDeckViewModel @Inject constructor(
                 if (existingCards[book.key]?.aiBrief == null) {
                     scheduleBrief(card, profileSummary, profileVersion)
                 }
+                sinceLastWildcard++
             }
         }
         return result
@@ -359,6 +427,13 @@ class SwipeDeckViewModel @Inject constructor(
 
             val newIdx = s.currentCardIndex + 1
             val nextCard = s.cards.getOrNull(newIdx)
+
+            // Diagnostic: log when a wildcard reaches the top of the stack.
+            if (nextCard != null) {
+                Log.d(TAG, "Card #$newIdx → ${nextCard.title} " +
+                        "(wildcard=${nextCard.isWildcard}, key=${nextCard.bookKey})")
+            }
+
             _state.update {
                 it.copy(
                     currentCardIndex = newIdx,
@@ -418,12 +493,10 @@ class SwipeDeckViewModel @Inject constructor(
 
         val cardsToAppend = mutableListOf<SwipeCardUiModel>()
         var regularIdx = 0
-        var position = _state.value.cards.size
 
         while (regularIdx < uniqueNewBooks.size) {
-            position++
-            // Interleave a wildcard every 4th overall position.
-            if (position % 4 == 0 && wildcards.isNotEmpty()) {
+            // Time for a wildcard?
+            if (sinceLastWildcard >= nextWildcardGap && wildcards.isNotEmpty()) {
                 val usedKeys = existingKeys + seenBookKeys + cardsToAppend.map { it.bookKey }.toSet()
                 val available = wildcards.filter { it.key !in usedKeys }
                 if (available.isNotEmpty()) {
@@ -433,6 +506,8 @@ class SwipeDeckViewModel @Inject constructor(
                     val card = wc.toUiModel(isWildcard = true, matchScore = score)
                     cardsToAppend.add(card)
                     scheduleBrief(card, profileSummary, profileVersion)
+                    sinceLastWildcard = 0
+                    nextWildcardGap = (4..10).random()
                 }
             }
 
@@ -441,6 +516,7 @@ class SwipeDeckViewModel @Inject constructor(
             val card = book.toUiModel(matchScore = score)
             cardsToAppend.add(card)
             scheduleBrief(card, profileSummary, profileVersion)
+            sinceLastWildcard++
         }
 
         if (cardsToAppend.isNotEmpty()) {
