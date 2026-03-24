@@ -10,6 +10,10 @@ java {
 kotlin {
     jvmToolchain(11)
 }
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+}
 dependencies {
     implementation(libs.kotlinx.coroutines.core)
 
