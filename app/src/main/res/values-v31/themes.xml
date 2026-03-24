@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        API 31+ system splash screen overrides.
+        windowSplashScreenBackground  — the dark near-black from the design system
+        windowSplashScreenAnimatedIcon — the logo PNG (transparent background)
+        windowSplashScreenIconBackgroundColor — keep transparent so the logo floats
+    -->
+    <style name="Theme.PageTurner" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/pt_background</item>
+        <item name="android:windowSplashScreenBackground">@color/pt_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/pageturner_logo</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+    </style>
+</resources>
+

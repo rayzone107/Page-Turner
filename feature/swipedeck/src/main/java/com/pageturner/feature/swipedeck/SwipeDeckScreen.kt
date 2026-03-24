@@ -103,10 +103,10 @@ fun SwipeDeckScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            PageTurnerTopBar(
-                title = "PageTurner",
-                actions = { AiLearningIndicator() }
-            )
+        PageTurnerTopBar(
+            title = "Page Turner",
+            actions = { AiLearningIndicator() }
+        )
         },
         containerColor = PageTurnerColors.Background,
     ) { innerPadding ->
