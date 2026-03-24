@@ -1,8 +1,0 @@
-com.pageturner.core.ai-pngs-0 /Users/rachit/AndroidStudioProjects/PageTurner/core/ai/build/generated/res/pngs/debug
-com.pageturner.core.ai-updated_navigation_xml-1 /Users/rachit/AndroidStudioProjects/PageTurner/core/ai/build/generated/updated_navigation_xml/debug
-com.pageturner.core.ai-mergeDebugResources-2 /Users/rachit/AndroidStudioProjects/PageTurner/core/ai/build/intermediates/incremental/debug/mergeDebugResources/merged.dir
-com.pageturner.core.ai-mergeDebugResources-3 /Users/rachit/AndroidStudioProjects/PageTurner/core/ai/build/intermediates/incremental/debug/mergeDebugResources/stripped.dir
-com.pageturner.core.ai-debug-4 /Users/rachit/AndroidStudioProjects/PageTurner/core/ai/build/intermediates/merged_res/debug/mergeDebugResources
-com.pageturner.core.ai-debug-5 /Users/rachit/AndroidStudioProjects/PageTurner/core/ai/build/intermediates/packaged_res/debug/packageDebugResources
-com.pageturner.core.ai-debug-6 /Users/rachit/AndroidStudioProjects/PageTurner/core/ai/src/debug/res
-com.pageturner.core.ai-main-7 /Users/rachit/AndroidStudioProjects/PageTurner/core/ai/src/main/res
