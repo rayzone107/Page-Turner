@@ -166,7 +166,7 @@ class SwipeDeckViewModel @Inject constructor(
 
             val updatedExisting = currentCards.map { card ->
                 val subjects = domainBookCache[card.bookKey]?.subjects ?: card.subjects
-                card.copy(matchScore = computeMatchScore(subjects, profile))
+                card.copy(matchScore = computeMatchScore(subjects, profile, card.isWildcard))
             }
 
             // If wildcards just arrived and the deck has none yet, inject them
@@ -221,10 +221,10 @@ class SwipeDeckViewModel @Inject constructor(
         while (i < result.size && available.isNotEmpty()) {
             sinceLastWildcard++
             if (sinceLastWildcard >= nextWildcardGap) {
-                val wc = available.removeFirst()
+                val wc = available.removeAt(0)
                 deckKeys.add(wc.key)
                 domainBookCache[wc.key] = wc
-                val score = computeMatchScore(wc.subjects, profile)
+                val score = computeMatchScore(wc.subjects, profile, isWildcard = true)
                 val card = wc.toUiModel(isWildcard = true, matchScore = score)
                 result.add(i + 1, card) // insert after current position
                 scheduleBrief(card, profileSummary, profileVersion)
@@ -263,7 +263,7 @@ class SwipeDeckViewModel @Inject constructor(
             if (sinceLastWildcard >= nextWildcardGap && wildcardIdx < availableWildcards.size) {
                 val wc = availableWildcards[wildcardIdx++]
                 deckKeys.add(wc.key)
-                val score = computeMatchScore(wc.subjects, profile)
+                val score = computeMatchScore(wc.subjects, profile, isWildcard = true)
                 val card = existingCards[wc.key]?.copy(matchScore = score)
                     ?: wc.toUiModel(isWildcard = true, matchScore = score)
                 result.add(card)
@@ -502,7 +502,7 @@ class SwipeDeckViewModel @Inject constructor(
                 if (available.isNotEmpty()) {
                     val wc = available.random()
                     domainBookCache[wc.key] = wc
-                    val score = computeMatchScore(wc.subjects, profile)
+                    val score = computeMatchScore(wc.subjects, profile, isWildcard = true)
                     val card = wc.toUiModel(isWildcard = true, matchScore = score)
                     cardsToAppend.add(card)
                     scheduleBrief(card, profileSummary, profileVersion)
@@ -529,17 +529,66 @@ class SwipeDeckViewModel @Inject constructor(
     // operates on domain-layer List<String> instead of a serialised JSON string,
     // keeping the feature module free of core:data imports).
     // ─────────────────────────────────────────────────────────────────
-    private fun computeMatchScore(subjects: List<String>, profile: TasteProfile?): Float {
-        if (profile == null) return 0.5f
-        if (profile.likedGenres.isEmpty() && profile.avoidedGenres.isEmpty()) return 0.5f
+    /**
+     * Computes a match score in 0.0–1.0 that reflects how well a book fits the profile.
+     *
+     * Design goals:
+     *  - New users (no profile) start around 0.20.
+     *  - As the profile matures (profileVersion increases with every 10 swipes),
+     *    regular books gradually climb toward 0.85–0.92 but never reach 1.0.
+     *  - There's always variance — two books with similar genre overlap get different scores.
+     *  - Wildcards are capped significantly lower (0.15–0.45) — that's the point.
+     */
+    private fun computeMatchScore(
+        subjects: List<String>,
+        profile: TasteProfile?,
+        isWildcard: Boolean = false,
+    ): Float {
+        // Deterministic jitter unique to this book: 0.00 – 0.12
+        val jitter = (subjects.sumOf { it.length } % 13) / 100f
+
+        // ── No profile yet → flat 0.20 with jitter ──────────────────────
+        if (profile == null || (profile.likedGenres.isEmpty() && profile.avoidedGenres.isEmpty())) {
+            return (0.18f + jitter).coerceIn(0.08f, 0.35f)
+        }
+
+        // ── Profile maturity: 0.0 at version 0, asymptotically approaches 1.0 ──
+        // version 1 (10 swipes) → 0.33,  v3 (30) → 0.60,  v5 (50) → 0.71,  v10 (100) → 0.83
+        val maturity = 1f - 1f / (1f + profile.profileVersion * 0.5f)
+
+        // ── Genre overlap ───────────────────────────────────────────────
         val subjectsLower = subjects.map { it.lowercase() }
         val liked   = profile.likedGenres.map  { it.lowercase() }
         val avoided = profile.avoidedGenres.map { it.lowercase() }
-        var score = 0.5f
-        for (subject in subjectsLower) {
-            if (liked.any   { l -> subject.contains(l) || l.contains(subject) }) score += 0.1f
-            if (avoided.any { a -> subject.contains(a) || a.contains(subject) }) score -= 0.1f
+
+        var likedHits = 0
+        var avoidedHits = 0
+        for (s in subjectsLower) {
+            if (liked.any   { l -> s.contains(l) || l.contains(s) }) likedHits++
+            if (avoided.any { a -> s.contains(a) || a.contains(s) }) avoidedHits++
         }
-        return score.coerceIn(0.05f, 0.99f)
+
+        // hitRatio: fraction of liked genres this book covers (0.0 – 1.0)
+        val hitRatio = if (liked.isNotEmpty()) (likedHits.toFloat() / liked.size).coerceAtMost(1f) else 0f
+        val avoidPenalty = if (avoided.isNotEmpty()) (avoidedHits.toFloat() / avoided.size).coerceAtMost(1f) else 0f
+
+        // ── Assemble the score ──────────────────────────────────────────
+        // Base line that rises with maturity: 0.20 → ~0.40 over time.
+        val base = 0.20f + maturity * 0.20f
+        // Genre boost scales with both maturity AND how well this book matches.
+        val genreBoost = hitRatio * maturity * 0.50f   // max ≈ 0.42 at full maturity
+        // Penalty for avoided genres.
+        val penalty = avoidPenalty * 0.25f
+
+        val rawScore = base + genreBoost - penalty + jitter
+
+        return if (isWildcard) {
+            // Wildcards: always noticeably below the regular average.
+            // Cap at 0.45 so they clearly sit in the red–orange zone.
+            rawScore.coerceIn(0.08f, 0.45f)
+        } else {
+            // Regular: cap at 0.95 — never fully "perfect".
+            rawScore.coerceIn(0.08f, 0.95f)
+        }
     }
 }
