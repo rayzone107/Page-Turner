@@ -19,6 +19,7 @@ dependencies {
 
     testImplementation(libs.junit5.api)
     testRuntimeOnly(libs.junit5.engine)
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.9.3")
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
 }
