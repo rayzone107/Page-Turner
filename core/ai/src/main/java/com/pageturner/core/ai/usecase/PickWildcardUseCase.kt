@@ -1,6 +1,7 @@
 package com.pageturner.core.ai.usecase
 
 import com.pageturner.core.ai.dto.WildcardPickDto
+import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Book
 import com.pageturner.core.domain.model.TasteProfile
 import com.pageturner.core.domain.model.WildcardResult
@@ -17,18 +18,20 @@ import javax.inject.Inject
  * Selects an intentional wildcard book from [candidates] — a book outside the user's
  * typical genres that shares a quality they demonstrably love.
  *
- * On any failure, falls back to a random candidate with no reason shown.
+ * On any failure (including rate limiting), falls back to a random candidate with no reason shown.
  * The wildcard slot is never left empty.
  */
 internal class PickWildcardUseCase @Inject constructor(
     private val anthropicApiService: AnthropicApiService,
-    private val moshi: Moshi
+    private val moshi: Moshi,
+    private val rateLimiter: AiRateLimiter,
 ) {
     suspend operator fun invoke(
         profile: TasteProfile,
         candidates: List<Book>
     ): WildcardResult? {
         if (candidates.isEmpty()) return null
+        if (!rateLimiter.checkAndRecord()) return randomFallback(candidates)
         return try {
             val response = withTimeout(AI_TIMEOUT_MS) {
                 anthropicApiService.createMessage(buildRequest(profile, candidates))

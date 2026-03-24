@@ -29,6 +29,8 @@ data class SwipeCardUiModel(
     val matchScore: Float,
     val isWildcard: Boolean,
     val wildcardReason: String?,
+    /** True when the AI brief could not be generated due to the quota being exceeded. */
+    val isAiQuotaExceeded: Boolean = false,
 )
 
 internal fun Book.toUiModel(

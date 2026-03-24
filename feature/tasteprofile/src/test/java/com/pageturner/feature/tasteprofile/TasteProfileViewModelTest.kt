@@ -4,12 +4,14 @@ import com.pageturner.core.domain.model.Book
 import com.pageturner.core.domain.model.TasteProfile
 import com.pageturner.core.domain.repository.ProfileRepository
 import com.pageturner.core.domain.repository.SwipeRepository
+import com.pageturner.core.domain.service.AiService
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -31,6 +33,7 @@ class TasteProfileViewModelTest {
 
     @MockK private lateinit var profileRepository: ProfileRepository
     @MockK private lateinit var swipeRepository: SwipeRepository
+    @MockK private lateinit var aiService: AiService
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -44,6 +47,7 @@ class TasteProfileViewModelTest {
         every { profileRepository.getProfile() } returns profileFlow
         every { swipeRepository.getSwipeCount() } returns swipeCountFlow
         every { swipeRepository.getSavedBooks() } returns savedBooksFlow
+        every { aiService.observeQuotaExceeded() } returns flowOf(false)
     }
 
     @AfterEach
@@ -70,7 +74,7 @@ class TasteProfileViewModelTest {
         @Test
         fun `state shows the AI summary text`() = runTest(testDispatcher) {
             profileFlow.value = aProfile(summary = "You love dark fiction.")
-            val vm = TasteProfileViewModel(profileRepository, swipeRepository)
+            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService)
             advanceUntilIdle()
 
             assertEquals("You love dark fiction.", vm.state.value.profile?.aiSummary)
@@ -82,7 +86,7 @@ class TasteProfileViewModelTest {
                 liked = listOf("literary fiction"),
                 avoided = listOf("romance")
             )
-            val vm = TasteProfileViewModel(profileRepository, swipeRepository)
+            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService)
             advanceUntilIdle()
 
             val profile = vm.state.value.profile
@@ -95,7 +99,7 @@ class TasteProfileViewModelTest {
         fun `swipe stats are populated from the repository`() = runTest(testDispatcher) {
             profileFlow.value = aProfile()
             swipeCountFlow.value = 25
-            val vm = TasteProfileViewModel(profileRepository, swipeRepository)
+            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService)
             advanceUntilIdle()
 
             assertEquals(25, vm.state.value.swipeStats.totalSwiped)
@@ -108,10 +112,23 @@ class TasteProfileViewModelTest {
         @Test
         fun `profile in state is null`() = runTest(testDispatcher) {
             profileFlow.value = null
-            val vm = TasteProfileViewModel(profileRepository, swipeRepository)
+            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService)
             advanceUntilIdle()
 
             assertNull(vm.state.value.profile)
+        }
+    }
+
+    @Nested
+    inner class `when AI quota is exceeded` {
+
+        @Test
+        fun `isAiQuotaExceeded is true in state`() = runTest(testDispatcher) {
+            every { aiService.observeQuotaExceeded() } returns flowOf(true)
+            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService)
+            advanceUntilIdle()
+
+            assertTrue(vm.state.value.isAiQuotaExceeded)
         }
     }
 }

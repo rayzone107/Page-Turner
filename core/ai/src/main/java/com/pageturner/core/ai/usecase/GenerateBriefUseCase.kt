@@ -1,6 +1,8 @@
 package com.pageturner.core.ai.usecase
 
+import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Book
+import com.pageturner.core.domain.service.AiResult
 import com.pageturner.core.network.api.AnthropicApiService
 import com.pageturner.core.network.dto.anthropic.AnthropicMessageDto
 import com.pageturner.core.network.dto.anthropic.AnthropicRequestDto
@@ -12,24 +14,29 @@ import javax.inject.Inject
 /**
  * Generates a 2-sentence personalised brief for a book, tailored to the reader's taste.
  *
- * Returns null on any failure — the swipe card must render without a brief rather than block.
+ * Returns [AiResult.RateLimited] when the per-minute/hour/day quota is exceeded.
+ * Returns [AiResult.Failed] on API error, timeout, or blank response — the swipe card
+ * must render without a brief rather than block.
  * Cached by (bookKey, profileVersion) in Room by the data layer; this use case only generates.
  */
 internal class GenerateBriefUseCase @Inject constructor(
-    private val anthropicApiService: AnthropicApiService
+    private val anthropicApiService: AnthropicApiService,
+    private val rateLimiter: AiRateLimiter,
 ) {
-    suspend operator fun invoke(book: Book, profileSummary: String?): String? {
+    suspend operator fun invoke(book: Book, profileSummary: String?): AiResult<String> {
+        if (!rateLimiter.checkAndRecord()) return AiResult.RateLimited
         return try {
             val response = withTimeout(AI_TIMEOUT_MS) {
                 anthropicApiService.createMessage(buildRequest(book, profileSummary))
             }
-            response.firstTextContent()?.trim().takeIf { !it.isNullOrBlank() }
+            val text = response.firstTextContent()?.trim().takeIf { !it.isNullOrBlank() }
+            if (text != null) AiResult.Success(text) else AiResult.Failed
         } catch (e: TimeoutCancellationException) {
             Timber.w("GenerateBriefUseCase timed out for book=${book.key}")
-            null
+            AiResult.Failed
         } catch (e: Exception) {
             Timber.e(e, "GenerateBriefUseCase failed for book=${book.key}")
-            null
+            AiResult.Failed
         }
     }
 

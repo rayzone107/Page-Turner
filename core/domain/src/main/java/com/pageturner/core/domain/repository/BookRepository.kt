@@ -34,8 +34,10 @@ interface BookRepository {
      * Fetches the next page of unseen books for the given [genres].
      * Tracks page numbers internally so each call advances to a new page.
      * Returns only books whose key is NOT in [seenBookKeys].
+     * Returns [Result.Failure] (e.g. [com.pageturner.core.domain.error.AppError.NoInternetError])
+     * when all network calls fail, so callers can surface an offline indicator.
      */
-    suspend fun fetchNextPage(genres: List<String>, seenBookKeys: Set<String>): List<Book>
+    suspend fun fetchNextPage(genres: List<String>, seenBookKeys: Set<String>): Result<List<Book>>
 
     /** Keys of all books the user has ever seen (swiped in any direction). */
     fun getSeenBookKeys(): Flow<Set<String>>

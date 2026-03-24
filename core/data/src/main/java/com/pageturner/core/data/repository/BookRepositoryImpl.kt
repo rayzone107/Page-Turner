@@ -104,22 +104,25 @@ class BookRepositoryImpl @Inject constructor(
     override suspend fun fetchNextPage(
         genres: List<String>,
         seenBookKeys: Set<String>
-    ): List<Book> {
+    ): Result<List<Book>> {
         val newBooks = mutableListOf<Book>()
+        var lastError: com.pageturner.core.domain.error.AppError? = null
         for (genre in genres) {
             val nextPage = (genrePageCounter[genre] ?: 1) + 1
             genrePageCounter[genre] = nextPage
-            safeApiCall { openLibraryApiService.searchBySubject(genre, page = nextPage) }
-                .getOrNull()
-                ?.docs
-                ?.filter { !it.key.isNullOrEmpty() && it.key !in seenBookKeys }
-                ?.forEach { doc ->
-                    val entity = doc.toEntity()
-                    bookDao.upsertBook(entity)
-                    newBooks.add(entity.toDomain())
-                }
+            when (val result = safeApiCall { openLibraryApiService.searchBySubject(genre, page = nextPage) }) {
+                is Result.Success -> result.data.docs
+                    .filter { !it.key.isNullOrEmpty() && it.key !in seenBookKeys }
+                    .forEach { doc ->
+                        val entity = doc.toEntity()
+                        bookDao.upsertBook(entity)
+                        newBooks.add(entity.toDomain())
+                    }
+                is Result.Failure -> lastError = result.error
+            }
         }
-        return newBooks.distinctBy { it.key }
+        return if (newBooks.isEmpty() && lastError != null) Result.Failure(lastError)
+        else Result.Success(newBooks.distinctBy { it.key })
     }
 
     override fun getSeenBookKeys(): Flow<Set<String>> =

@@ -8,11 +8,12 @@ import com.pageturner.core.domain.model.Genre
 import com.pageturner.core.domain.model.SwipeDirection
 import com.pageturner.core.domain.model.SwipeEvent
 import com.pageturner.core.domain.model.TasteProfile
-import com.pageturner.core.domain.model.WildcardResult
 import com.pageturner.core.domain.repository.BookRepository
 import com.pageturner.core.domain.repository.ProfileRepository
 import com.pageturner.core.domain.repository.SwipeRepository
 import com.pageturner.core.domain.service.AiService
+import com.pageturner.core.domain.error.AppError
+import com.pageturner.core.domain.service.AiResult
 import com.pageturner.core.domain.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -201,11 +202,6 @@ class SwipeDeckViewModel @Inject constructor(
                 val card = existingCards[wc.key]?.copy(matchScore = score)
                     ?: wc.toUiModel(isWildcard = true, matchScore = score)
                 result.add(card)
-                if (existingCards[wc.key] == null) {
-                    // Pass the full pool — scheduleWildcardPick filters against
-                    // seenBookKeys + current deck internally.
-                    scheduleWildcardPick(startPosition + result.lastIndex, wildcards, profile)
-                }
                 if (existingCards[wc.key]?.aiBrief == null) {
                     scheduleBrief(card, profileSummary, profileVersion)
                 }
@@ -232,77 +228,38 @@ class SwipeDeckViewModel @Inject constructor(
         briefJobs[card.bookKey] = viewModelScope.launch {
             val cached = swipeRepository.getAiBriefCache(card.bookKey, profileVersion)
             if (cached != null) {
-                updateCardBrief(card.bookKey, cached)
+                updateCardBrief(card.bookKey, cached, quotaExceeded = false)
                 return@launch
             }
             val book = domainBookCache[card.bookKey] ?: return@launch
-            val brief = aiService.generateBrief(book, profileSummary)
-            if (brief != null) {
-                swipeRepository.cacheAiBrief(card.bookKey, profileVersion, brief)
-                updateCardBrief(card.bookKey, brief)
-            } else {
-                // API failed — set empty string so the shimmer clears instead of spinning forever.
-                updateCardBrief(card.bookKey, "")
+            when (val result = aiService.generateBrief(book, profileSummary)) {
+                is AiResult.Success -> {
+                    swipeRepository.cacheAiBrief(card.bookKey, profileVersion, result.data)
+                    updateCardBrief(card.bookKey, result.data, quotaExceeded = false)
+                }
+                is AiResult.RateLimited -> {
+                    // Quota exceeded — clear shimmer and show quota error on card.
+                    updateCardBrief(card.bookKey, "", quotaExceeded = true)
+                }
+                is AiResult.Failed -> {
+                    // API failed — set empty string so the shimmer clears silently.
+                    updateCardBrief(card.bookKey, "", quotaExceeded = false)
+                }
             }
         }
     }
 
-    private fun updateCardBrief(bookKey: String, brief: String) {
+    private fun updateCardBrief(bookKey: String, brief: String, quotaExceeded: Boolean) {
         _state.update { s ->
-            val updated = s.cards.map { if (it.bookKey == bookKey) it.copy(aiBrief = brief) else it }
+            val updated = s.cards.map { card ->
+                if (card.bookKey == bookKey) card.copy(aiBrief = brief, isAiQuotaExceeded = quotaExceeded)
+                else card
+            }
             val topCard = updated.getOrNull(s.currentCardIndex)
             s.copy(cards = updated, isGeneratingBrief = topCard != null && topCard.aiBrief == null)
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Wildcard slot AI pick (every 4th slot)
-    // ─────────────────────────────────────────────────────────────────
-
-    private fun scheduleWildcardPick(cardIndex: Int, candidates: List<Book>, profile: TasteProfile?) {
-        viewModelScope.launch {
-            // Exclude books the user has already swiped or that are currently in the deck.
-            val deckKeys = _state.value.cards.map { it.bookKey }.toSet()
-            val unseen = candidates.filter { it.key !in seenBookKeys && it.key !in deckKeys }
-            if (unseen.isEmpty()) return@launch
-            val result: WildcardResult = if (profile != null) {
-                aiService.pickWildcard(profile, unseen)
-                    ?: WildcardResult(book = unseen.random(), reason = null)
-            } else {
-                WildcardResult(book = unseen.random(), reason = null)
-            }
-
-            domainBookCache[result.book.key] = result.book
-            val pickedCard = result.book.toUiModel(isWildcard = true, wildcardReason = result.reason)
-
-            _state.update { s ->
-                // Only replace the slot if the user hasn't already swiped past it.
-                if (cardIndex >= s.currentCardIndex && cardIndex < s.cards.size) {
-                    // Carry forward the existing aiBrief if the book key matches
-                    // (the brief coroutine may have finished before the wildcard pick).
-                    val existing = s.cards[cardIndex]
-                    val cardWithBrief = if (existing.bookKey == pickedCard.bookKey && existing.aiBrief != null) {
-                        pickedCard.copy(aiBrief = existing.aiBrief)
-                    } else {
-                        pickedCard
-                    }
-                    s.copy(cards = s.cards.toMutableList().also { it[cardIndex] = cardWithBrief })
-                } else s
-            }
-
-            // Schedule a brief only if the AI pick didn't produce a wildcardReason.
-            // When a wildcardReason exists, the UI shows it as the brief — no need
-            // for a separate aiBrief that would be hidden anyway.
-            if (result.reason.isNullOrBlank()) {
-                val currentCard = _state.value.cards.getOrNull(cardIndex)
-                if (currentCard != null && currentCard.aiBrief == null) {
-                    val profileSummary = profile?.aiSummary
-                    val profileVersion = profile?.profileVersion ?: 0
-                    scheduleBrief(currentCard, profileSummary, profileVersion)
-                }
-            }
-        }
-    }
 
     // ─────────────────────────────────────────────────────────────────
     // Wildcard candidate pool (off-genre books)
@@ -340,8 +297,11 @@ class SwipeDeckViewModel @Inject constructor(
         viewModelScope.launch {
             val history = swipeRepository.getSwipeHistory().first()
             val prefs = profileRepository.getOnboardingPreferences() ?: return@launch
-            val newProfile = aiService.summarizeProfile(history, prefs.selectedGenres) ?: return@launch
-            profileRepository.saveProfile(newProfile)
+            when (val result = aiService.summarizeProfile(history, prefs.selectedGenres)) {
+                is AiResult.Success -> profileRepository.saveProfile(result.data)
+                is AiResult.RateLimited -> { /* quota exceeded — keep existing profile, quota state updated in rateLimiter */ }
+                is AiResult.Failed -> { /* API error — keep existing profile */ }
+            }
         }
     }
 
@@ -424,9 +384,16 @@ class SwipeDeckViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val seenKeys = bookRepository.getSeenBookKeys().first()
-                val newBooks = bookRepository.fetchNextPage(userGenreSubjects, seenKeys)
-                if (newBooks.isNotEmpty()) {
-                    appendCards(newBooks)
+                when (val result = bookRepository.fetchNextPage(userGenreSubjects, seenKeys)) {
+                    is Result.Success -> {
+                        _state.update { it.copy(isOffline = false) }
+                        if (result.data.isNotEmpty()) appendCards(result.data)
+                    }
+                    is Result.Failure -> {
+                        if (result.error is AppError.NoInternetError) {
+                            _state.update { it.copy(isOffline = true) }
+                        }
+                    }
                 }
             } finally {
                 isRefreshingQueue = false
@@ -465,8 +432,6 @@ class SwipeDeckViewModel @Inject constructor(
                     val score = computeMatchScore(wc.subjects, profile)
                     val card = wc.toUiModel(isWildcard = true, matchScore = score)
                     cardsToAppend.add(card)
-                    val cardIdx = _state.value.cards.size + cardsToAppend.lastIndex
-                    scheduleWildcardPick(cardIdx, wildcards, profile)
                     scheduleBrief(card, profileSummary, profileVersion)
                 }
             }

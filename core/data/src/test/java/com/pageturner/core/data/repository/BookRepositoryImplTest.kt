@@ -130,7 +130,7 @@ class BookRepositoryImplTest {
 
             val result = repo.fetchNextPage(listOf("fantasy", "classics"), emptySet())
 
-            assertEquals(1, result.size)
+            assertEquals(1, (result as com.pageturner.core.domain.util.Result.Success).data.size)
         }
     }
 

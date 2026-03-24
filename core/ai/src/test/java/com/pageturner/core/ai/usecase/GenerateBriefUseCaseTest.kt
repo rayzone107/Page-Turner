@@ -1,6 +1,8 @@
 package com.pageturner.core.ai.usecase
 
+import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Book
+import com.pageturner.core.domain.service.AiResult
 import com.pageturner.core.network.api.AnthropicApiService
 import com.pageturner.core.network.dto.anthropic.AnthropicContentBlockDto
 import com.pageturner.core.network.dto.anthropic.AnthropicResponseDto
@@ -9,8 +11,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test

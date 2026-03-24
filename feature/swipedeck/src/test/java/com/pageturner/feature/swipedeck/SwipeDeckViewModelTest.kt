@@ -10,6 +10,7 @@ import com.pageturner.core.domain.model.TasteProfile
 import com.pageturner.core.domain.repository.BookRepository
 import com.pageturner.core.domain.repository.ProfileRepository
 import com.pageturner.core.domain.repository.SwipeRepository
+import com.pageturner.core.domain.service.AiResult
 import com.pageturner.core.domain.service.AiService
 import com.pageturner.core.domain.util.Result
 import io.mockk.coEvery
@@ -76,7 +77,7 @@ class SwipeDeckViewModelTest {
         every { profileRepository.getProfile() } returns profileFlow
         every { swipeRepository.getSwipeCount() } returns swipeCountFlow
         coEvery { bookRepository.fetchBooks(any(), any()) } returns Result.Success(emptyList())
-        coEvery { aiService.generateBrief(any(), any()) } returns null
+        coEvery { aiService.generateBrief(any(), any()) } returns AiResult.Failed
         coEvery { aiService.pickWildcard(any(), any()) } returns null
         coJustRun { swipeRepository.recordSwipe(any()) }
         coJustRun { swipeRepository.saveBook(any(), any(), any(), any(), any()) }
@@ -85,6 +86,8 @@ class SwipeDeckViewModelTest {
         coJustRun { bookRepository.prefetchBookDetail(any()) }
         // getSwipeHistory is called by runProfileUpdate() when swipeCount hits a multiple of 10
         every { swipeRepository.getSwipeHistory() } returns flowOf(emptyList())
+        coEvery { aiService.summarizeProfile(any(), any()) } returns AiResult.Failed
+        every { aiService.observeQuotaExceeded() } returns flowOf(false)
 
         return SwipeDeckViewModel(bookRepository, swipeRepository, profileRepository, aiService)
     }
@@ -238,8 +241,6 @@ class SwipeDeckViewModelTest {
 
         @Test
         fun `TriggerProfileUpdate side effect is emitted`() = runTest(testDispatcher) {
-            coEvery { aiService.summarizeProfile(any(), any()) } returns null
-
             val vm = createInitializedViewModel()
             advanceUntilIdle()
 
@@ -258,7 +259,7 @@ class SwipeDeckViewModelTest {
 
         @Test
         fun `isReplenishing becomes true while fetching then false on completion`() = runTest(testDispatcher) {
-            coEvery { bookRepository.fetchNextPage(any(), any()) } returns emptyList()
+            coEvery { bookRepository.fetchNextPage(any(), any()) } returns Result.Success(emptyList())
 
             val vm = createInitializedViewModel()
             advanceUntilIdle()

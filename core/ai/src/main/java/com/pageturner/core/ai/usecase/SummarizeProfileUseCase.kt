@@ -1,10 +1,12 @@
 package com.pageturner.core.ai.usecase
 
 import com.pageturner.core.ai.dto.ProfileSummaryDto
+import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Genre
 import com.pageturner.core.domain.model.SwipeDirection
 import com.pageturner.core.domain.model.SwipeEvent
 import com.pageturner.core.domain.model.TasteProfile
+import com.pageturner.core.domain.service.AiResult
 import com.pageturner.core.network.api.AnthropicApiService
 import com.pageturner.core.network.dto.anthropic.AnthropicMessageDto
 import com.pageturner.core.network.dto.anthropic.AnthropicRequestDto
@@ -18,30 +20,35 @@ import javax.inject.Inject
  * Reads the user's full swipe history and produces a structured [TasteProfile].
  * Triggered automatically every 10 swipes.
  *
- * Returns null on any failure — the caller must keep the existing profile unchanged.
- * Never resets the profile to empty on failure.
+ * Returns [AiResult.RateLimited] when quota is exceeded — the caller must keep the
+ * existing profile unchanged and surface a "quota reached" indicator.
+ * Returns [AiResult.Failed] on API error, timeout, or parse failure — existing profile preserved.
+ * Never resets the profile to empty on any failure.
  */
 internal class SummarizeProfileUseCase @Inject constructor(
     private val anthropicApiService: AnthropicApiService,
-    private val moshi: Moshi
+    private val moshi: Moshi,
+    private val rateLimiter: AiRateLimiter,
 ) {
     suspend operator fun invoke(
         swipeEvents: List<SwipeEvent>,
         onboardingGenres: List<Genre>
-    ): TasteProfile? {
-        if (swipeEvents.isEmpty()) return null
+    ): AiResult<TasteProfile> {
+        if (swipeEvents.isEmpty()) return AiResult.Failed
+        if (!rateLimiter.checkAndRecord()) return AiResult.RateLimited
         return try {
             val response = withTimeout(AI_TIMEOUT_MS) {
                 anthropicApiService.createMessage(buildRequest(swipeEvents, onboardingGenres))
             }
-            val text = response.firstTextContent() ?: return null
-            parseProfile(text, swipeEvents.size)
+            val text = response.firstTextContent() ?: return AiResult.Failed
+            val profile = parseProfile(text, swipeEvents.size)
+            if (profile != null) AiResult.Success(profile) else AiResult.Failed
         } catch (e: TimeoutCancellationException) {
             Timber.w("SummarizeProfileUseCase timed out (${swipeEvents.size} swipes)")
-            null
+            AiResult.Failed
         } catch (e: Exception) {
             Timber.e(e, "SummarizeProfileUseCase failed")
-            null
+            AiResult.Failed
         }
     }
 

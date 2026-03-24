@@ -93,6 +93,16 @@ fun TasteProfileScreen(
                 ProfileContent(
                     profile = state.profile!!,
                     stats = state.swipeStats,
+                    isAiQuotaExceeded = state.isAiQuotaExceeded,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                )
+            }
+
+            state.isAiQuotaExceeded -> {
+                // >=10 swipes but AI quota was hit before a profile could be built.
+                QuotaExceededNoProfileState(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
@@ -120,6 +130,7 @@ fun TasteProfileScreen(
 private fun ProfileContent(
     profile: TasteProfileUiModel,
     stats: SwipeStats,
+    isAiQuotaExceeded: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -127,6 +138,16 @@ private fun ProfileContent(
             .verticalScroll(rememberScrollState())
             .padding(PageTurnerSpacing.md),
     ) {
+        if (isAiQuotaExceeded) {
+            Text(
+                text = "AI quota reached — profile is stale and won't update until the quota resets.",
+                style = PageTurnerType.BodySmall,
+                color = PageTurnerColors.Error,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = PageTurnerSpacing.sm),
+            )
+        }
         // AI summary section
         SectionHeader(text = "My taste profile")
         Spacer(Modifier.height(PageTurnerSpacing.sm))
@@ -231,6 +252,33 @@ private fun StatCard(
         Text(
             text = label,
             style = PageTurnerType.Label,
+            color = PageTurnerColors.OnSurfaceMuted,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quota exceeded with no existing profile (>= 10 swipes, quota hit before first build)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun QuotaExceededNoProfileState(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(PageTurnerSpacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = "AI quota reached",
+            style = PageTurnerType.CardTitle,
+            color = PageTurnerColors.Error,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(PageTurnerSpacing.sm))
+        Text(
+            text = "Your taste profile couldn't be built because the daily AI limit was reached. Keep swiping — it will be generated automatically once the quota resets.",
+            style = PageTurnerType.Body,
             color = PageTurnerColors.OnSurfaceMuted,
             textAlign = TextAlign.Center,
         )

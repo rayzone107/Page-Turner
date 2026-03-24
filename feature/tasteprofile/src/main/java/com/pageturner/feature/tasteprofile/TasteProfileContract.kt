@@ -8,6 +8,8 @@ data class TasteProfileUiState(
     val profile: TasteProfileUiModel? = null,
     val swipeStats: SwipeStats = SwipeStats(),
     val error: UiError? = null,
+    /** True while any AI quota window (minute/hour/day) is exceeded. */
+    val isAiQuotaExceeded: Boolean = false,
 )
 
 data class TasteProfileUiModel(

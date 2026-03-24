@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.pageturner.core.domain.error.UiError
 import com.pageturner.core.domain.repository.ProfileRepository
 import com.pageturner.core.domain.repository.SwipeRepository
+import com.pageturner.core.domain.service.AiService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,6 +23,7 @@ import javax.inject.Inject
 class TasteProfileViewModel @Inject constructor(
     profileRepository: ProfileRepository,
     swipeRepository: SwipeRepository,
+    aiService: AiService,
 ) : ViewModel() {
 
     val state: StateFlow<TasteProfileUiState> = combine(
@@ -37,8 +39,9 @@ class TasteProfileViewModel @Inject constructor(
             .onStart { Log.d("TasteProfileVM", "getSavedBooks flow started") }
             .onEach   { Log.d("TasteProfileVM", "getSavedBooks emitted: ${it.size} books") }
             .catch    { Log.e("TasteProfileVM", "getSavedBooks threw", it); throw it },
-    ) { profile, totalSwiped, savedBooks ->
-        Log.d("TasteProfileVM", "combine firing: profile=${profile != null}, totalSwiped=$totalSwiped, saved=${savedBooks.size}")
+        aiService.observeQuotaExceeded(),
+    ) { profile, totalSwiped, savedBooks, isQuotaExceeded ->
+        Log.d("TasteProfileVM", "combine firing: profile=${profile != null}, totalSwiped=$totalSwiped, saved=${savedBooks.size}, quotaExceeded=$isQuotaExceeded")
         val stats = SwipeStats(
             totalSwiped = totalSwiped,
             totalSaved = savedBooks.size,
@@ -47,6 +50,7 @@ class TasteProfileViewModel @Inject constructor(
         TasteProfileUiState(
             profile = profile?.toUiModel(),
             swipeStats = stats,
+            isAiQuotaExceeded = isQuotaExceeded,
         )
     }
         .catch { e ->
