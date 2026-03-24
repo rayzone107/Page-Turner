@@ -26,7 +26,7 @@ import com.pageturner.core.data.entity.TasteProfileEntity
         AiBriefCacheEntity::class,
         OnboardingEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pageturner.core.domain.error.AppError
 import com.pageturner.core.domain.repository.BookRepository
+import com.pageturner.core.domain.repository.SwipeRepository
 import com.pageturner.core.domain.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -20,6 +21,7 @@ import javax.inject.Inject
 class BookDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val bookRepository: BookRepository,
+    private val swipeRepository: SwipeRepository,
 ) : ViewModel() {
 
     private val bookKey: String = checkNotNull(savedStateHandle["bookKey"])
@@ -32,6 +34,7 @@ class BookDetailViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { loadBook() }
+        viewModelScope.launch { observeSavedStatus() }
     }
 
     private suspend fun loadBook() {
@@ -53,6 +56,12 @@ class BookDetailViewModel @Inject constructor(
         }
     }
 
+    private suspend fun observeSavedStatus() {
+        // Check once on load; the reading list screen handles real-time updates.
+        val saved = swipeRepository.isBookSaved(bookKey)
+        _state.update { it.copy(isSaved = saved) }
+    }
+
     fun handleIntent(intent: BookDetailIntent) {
         when (intent) {
             BookDetailIntent.NavigateBack -> viewModelScope.launch {
@@ -63,6 +72,10 @@ class BookDetailViewModel @Inject constructor(
                 _sideEffects.send(BookDetailSideEffect.OpenUrl(url))
             }
             BookDetailIntent.Retry -> viewModelScope.launch { loadBook() }
+            BookDetailIntent.RemoveFromList -> viewModelScope.launch {
+                swipeRepository.removeBook(bookKey)
+                _state.update { it.copy(isSaved = false) }
+            }
         }
     }
 }

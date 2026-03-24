@@ -15,16 +15,29 @@ interface SwipeRepository {
     /** Total number of swipes across all sessions. */
     fun getSwipeCount(): Flow<Int>
 
-    /** Saves a book to the user's reading list. */
+    /**
+     * Saves a book to the user's reading list.
+     * [isBookmarked] distinguishes a BOOKMARK swipe (true) from a RIGHT/like swipe (false).
+     */
     suspend fun saveBook(
         bookKey: String,
         aiBrief: String?,
         wildcardReason: String?,
-        isWildcard: Boolean
+        isWildcard: Boolean,
+        isBookmarked: Boolean = false,
     )
 
-    /** All books the user has saved (swiped right). Offline-first — Room only. */
+    /** All books the user has saved (both liked and bookmarked). Offline-first — Room only. */
     fun getSavedBooks(): Flow<List<Book>>
+
+    /** Only books the user swiped right (liked). */
+    fun getLikedBooks(): Flow<List<Book>>
+
+    /** Only books the user bookmarked (BOOKMARK swipe). */
+    fun getBookmarkedBooks(): Flow<List<Book>>
+
+    /** Whether a specific book is currently in the reading list. */
+    suspend fun isBookSaved(bookKey: String): Boolean
 
     /** Removes a book from the reading list. */
     suspend fun removeBook(bookKey: String)

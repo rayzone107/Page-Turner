@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -191,12 +193,12 @@ private fun StatsGrid(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().height(IntrinsicSize.Max),
         horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.sm),
     ) {
-        StatCard(label = "Swiped", value = stats.totalSwiped.toString(), modifier = Modifier.weight(1f))
-        StatCard(label = "Saved", value = stats.totalSaved.toString(), modifier = Modifier.weight(1f))
-        StatCard(label = "Wildcards\nkept", value = stats.wildcardKept.toString(), modifier = Modifier.weight(1f))
+        StatCard(label = "Swiped", value = stats.totalSwiped.toString(), modifier = Modifier.weight(1f).fillMaxHeight())
+        StatCard(label = "Saved", value = stats.totalSaved.toString(), modifier = Modifier.weight(1f).fillMaxHeight())
+        StatCard(label = "Wildcards\nkept", value = stats.wildcardKept.toString(), modifier = Modifier.weight(1f).fillMaxHeight())
     }
 }
 
@@ -212,6 +214,7 @@ private fun StatCard(
             .background(PageTurnerColors.SurfaceVariant)
             .padding(PageTurnerSpacing.md),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
             text = value,

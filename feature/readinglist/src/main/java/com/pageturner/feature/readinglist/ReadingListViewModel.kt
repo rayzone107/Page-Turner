@@ -7,7 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -19,19 +19,20 @@ class ReadingListViewModel @Inject constructor(
 ) : ViewModel() {
 
     /** Reading list is offline-first: Room is the sole source of truth, zero network calls. */
-    val state: StateFlow<ReadingListUiState> = swipeRepository.getSavedBooks()
-        .map { books ->
-            ReadingListUiState(
-                books = books.map { it.toSavedUiModel() },
-                isLoading = false,
-                isEmpty = books.isEmpty(),
-            )
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = ReadingListUiState(isLoading = true),
+    val state: StateFlow<ReadingListUiState> = combine(
+        swipeRepository.getLikedBooks(),
+        swipeRepository.getBookmarkedBooks(),
+    ) { liked, bookmarked ->
+        ReadingListUiState(
+            likedBooks = liked.map { it.toSavedUiModel() },
+            bookmarkedBooks = bookmarked.map { it.toSavedUiModel() },
+            isLoading = false,
         )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ReadingListUiState(isLoading = true),
+    )
 
     private val _sideEffects = Channel<ReadingListSideEffect>(Channel.BUFFERED)
     val sideEffects = _sideEffects.receiveAsFlow()

@@ -6,6 +6,6 @@ package com.pageturner.core.domain.model
  */
 data class OnboardingPreferences(
     val selectedGenres: List<Genre>,
-    val selectedLength: ReadingLength,
+    val selectedLengths: List<ReadingLength>,
     val completedAt: Long
 )

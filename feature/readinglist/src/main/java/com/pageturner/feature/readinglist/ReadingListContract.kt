@@ -3,10 +3,12 @@ package com.pageturner.feature.readinglist
 import com.pageturner.core.domain.model.Book
 
 data class ReadingListUiState(
-    val books: List<SavedBookUiModel> = emptyList(),
+    val likedBooks: List<SavedBookUiModel> = emptyList(),
+    val bookmarkedBooks: List<SavedBookUiModel> = emptyList(),
     val isLoading: Boolean = false,
-    val isEmpty: Boolean = false,
-)
+) {
+    val isEmpty: Boolean get() = likedBooks.isEmpty() && bookmarkedBooks.isEmpty()
+}
 
 data class SavedBookUiModel(
     val bookKey: String,

@@ -30,7 +30,7 @@ class OnboardingViewModel @Inject constructor(
     fun onIntent(intent: OnboardingIntent) {
         when (intent) {
             is OnboardingIntent.ToggleGenre   -> toggleGenre(intent.genre)
-            is OnboardingIntent.SelectLength  -> selectLength(intent.length)
+            is OnboardingIntent.ToggleLength  -> toggleLength(intent.length)
             is OnboardingIntent.Confirm       -> confirm()
         }
     }
@@ -44,16 +44,21 @@ class OnboardingViewModel @Inject constructor(
             }
             state.copy(
                 selectedGenres = updated,
-                canProceed = updated.isNotEmpty() && state.selectedLength != null
+                canProceed = updated.isNotEmpty() && state.selectedLengths.isNotEmpty()
             )
         }
     }
 
-    private fun selectLength(length: ReadingLength) {
+    private fun toggleLength(length: ReadingLength) {
         _uiState.update { state ->
+            val updated = if (length in state.selectedLengths) {
+                state.selectedLengths - length
+            } else {
+                state.selectedLengths + length
+            }
             state.copy(
-                selectedLength = length,
-                canProceed = state.selectedGenres.isNotEmpty()
+                selectedLengths = updated,
+                canProceed = state.selectedGenres.isNotEmpty() && updated.isNotEmpty()
             )
         }
     }
@@ -66,9 +71,9 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             profileRepository.saveOnboardingPreferences(
                 OnboardingPreferences(
-                    selectedGenres = state.selectedGenres.toList(),
-                    selectedLength = state.selectedLength!!,
-                    completedAt    = System.currentTimeMillis()
+                    selectedGenres  = state.selectedGenres.toList(),
+                    selectedLengths = state.selectedLengths.toList(),
+                    completedAt     = System.currentTimeMillis()
                 )
             )
             _sideEffects.send(OnboardingSideEffect.NavigateToSwipeDeck)

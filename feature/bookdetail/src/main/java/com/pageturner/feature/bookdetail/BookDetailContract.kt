@@ -9,6 +9,8 @@ data class BookDetailUiState(
     val book: BookDetailUiModel? = null,
     val error: UiError? = null,
     val isOffline: Boolean = false,
+    /** True when this book is currently in the user's reading list. */
+    val isSaved: Boolean = false,
 )
 
 data class BookDetailUiModel(
@@ -63,6 +65,7 @@ sealed class BookDetailIntent {
     data object NavigateBack : BookDetailIntent()
     data object OpenOnOpenLibrary : BookDetailIntent()
     data object Retry : BookDetailIntent()
+    data object RemoveFromList : BookDetailIntent()
 }
 
 sealed class BookDetailSideEffect {

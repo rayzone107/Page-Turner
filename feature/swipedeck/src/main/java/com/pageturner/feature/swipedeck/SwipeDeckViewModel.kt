@@ -301,7 +301,13 @@ class SwipeDeckViewModel @Inject constructor(
             )
 
             if (direction == SwipeDirection.RIGHT || direction == SwipeDirection.BOOKMARK) {
-                swipeRepository.saveBook(bookKey, card.aiBrief, card.wildcardReason, card.isWildcard)
+                swipeRepository.saveBook(
+                    bookKey        = bookKey,
+                    aiBrief        = card.aiBrief,
+                    wildcardReason = card.wildcardReason,
+                    isWildcard     = card.isWildcard,
+                    isBookmarked   = direction == SwipeDirection.BOOKMARK,
+                )
             }
 
             val newIdx = s.currentCardIndex + 1

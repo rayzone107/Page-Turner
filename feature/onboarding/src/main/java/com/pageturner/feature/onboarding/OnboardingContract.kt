@@ -6,14 +6,14 @@ import com.pageturner.core.domain.model.ReadingLength
 data class OnboardingUiState(
     val genres: List<Genre> = Genre.all(),
     val selectedGenres: Set<Genre> = emptySet(),
-    val selectedLength: ReadingLength? = null,
-    val canProceed: Boolean = false,   // true when >= 1 genre AND 1 length selected
+    val selectedLengths: Set<ReadingLength> = emptySet(),
+    val canProceed: Boolean = false,   // true when >= 1 genre AND >= 1 length selected
     val isLoading: Boolean = false
 )
 
 sealed class OnboardingIntent {
     data class ToggleGenre(val genre: Genre) : OnboardingIntent()
-    data class SelectLength(val length: ReadingLength) : OnboardingIntent()
+    data class ToggleLength(val length: ReadingLength) : OnboardingIntent()
     data object Confirm : OnboardingIntent()
 }
 

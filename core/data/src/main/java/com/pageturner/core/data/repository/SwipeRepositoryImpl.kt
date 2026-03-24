@@ -41,15 +41,17 @@ class SwipeRepositoryImpl @Inject constructor(
         bookKey: String,
         aiBrief: String?,
         wildcardReason: String?,
-        isWildcard: Boolean
+        isWildcard: Boolean,
+        isBookmarked: Boolean,
     ) = withContext(Dispatchers.IO) {
         savedBookDao.saveBook(
             SavedBookEntity(
-                bookKey       = bookKey,
-                savedAt       = System.currentTimeMillis(),
-                aiBrief       = aiBrief,
+                bookKey        = bookKey,
+                savedAt        = System.currentTimeMillis(),
+                aiBrief        = aiBrief,
                 wildcardReason = wildcardReason,
-                isWildcard    = isWildcard
+                isWildcard     = isWildcard,
+                isBookmarked   = isBookmarked,
             )
         )
     }
@@ -58,6 +60,20 @@ class SwipeRepositoryImpl @Inject constructor(
         savedBookDao.getSavedBooksWithDetails()
             .map { list -> list.map { it.toDomain() } }
             .flowOn(Dispatchers.IO)
+
+    override fun getLikedBooks(): Flow<List<Book>> =
+        savedBookDao.getLikedBooksWithDetails()
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(Dispatchers.IO)
+
+    override fun getBookmarkedBooks(): Flow<List<Book>> =
+        savedBookDao.getBookmarkedBooksWithDetails()
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(Dispatchers.IO)
+
+    override suspend fun isBookSaved(bookKey: String): Boolean = withContext(Dispatchers.IO) {
+        savedBookDao.isBookSaved(bookKey)
+    }
 
     override suspend fun removeBook(bookKey: String) = withContext(Dispatchers.IO) {
         savedBookDao.removeBook(bookKey)

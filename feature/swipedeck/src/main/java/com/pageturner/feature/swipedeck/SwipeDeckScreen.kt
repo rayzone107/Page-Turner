@@ -296,6 +296,7 @@ private fun SwipeCard(
     }
 
     Card(
+        onClick = onExpand,
         modifier = modifier
             .onSizeChanged { cardWidthPx = it.width.toFloat() }
             .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }

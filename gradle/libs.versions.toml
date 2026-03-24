@@ -13,6 +13,7 @@ retrofit = "3.0.0"
 okhttp = "5.3.2"
 moshi = "1.15.2"
 coil = "3.4.0"
+palette = "1.0.0"
 room = "2.8.4"
 coroutines = "1.10.2"
 timber = "5.0.1"
@@ -59,6 +60,7 @@ moshi-kotlin-codegen = { group = "com.squareup.moshi", name = "moshi-kotlin-code
 # Image Loading
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+androidx-palette = { group = "androidx.palette", name = "palette", version.ref = "palette" }
 
 # Room
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }

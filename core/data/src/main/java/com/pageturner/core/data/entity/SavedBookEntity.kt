@@ -20,5 +20,7 @@ data class SavedBookEntity(
     val savedAt: Long,
     val aiBrief: String?,
     val wildcardReason: String?,
-    val isWildcard: Boolean
+    val isWildcard: Boolean,
+    /** True when the book was bookmarked (BOOKMARK swipe); false when liked (RIGHT swipe). */
+    val isBookmarked: Boolean = false,
 )

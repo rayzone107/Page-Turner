@@ -2,6 +2,8 @@ package com.pageturner.core.data.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.pageturner.core.data.db.PageTurnerDatabase
 import com.pageturner.core.data.db.dao.AiBriefCacheDao
 import com.pageturner.core.data.db.dao.BookDao
@@ -29,12 +31,22 @@ object DataModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): PageTurnerDatabase =
-        Room.databaseBuilder(
+    fun provideDatabase(@ApplicationContext context: Context): PageTurnerDatabase {
+        val migration1To2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE saved_books ADD COLUMN isBookmarked INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+        return Room.databaseBuilder(
             context,
             PageTurnerDatabase::class.java,
             "pageturner.db"
-        ).build()
+        )
+            .addMigrations(migration1To2)
+            .build()
+    }
 
     @Provides fun provideBookDao(db: PageTurnerDatabase): BookDao = db.bookDao()
     @Provides fun provideSwipeEventDao(db: PageTurnerDatabase): SwipeEventDao = db.swipeEventDao()

@@ -22,8 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,7 +53,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pageturner.core.ui.components.BookCoverImage
 import com.pageturner.core.ui.components.EmptyShelfState
-import com.pageturner.core.ui.components.LoadingIndicator
 import com.pageturner.core.ui.components.PageTurnerTopBar
 import com.pageturner.core.ui.theme.PageTurnerColors
 import com.pageturner.core.ui.theme.PageTurnerSpacing
@@ -120,24 +120,98 @@ fun ReadingListScreen(
             }
 
             else -> {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
-                    contentPadding = PaddingValues(PageTurnerSpacing.sm),
-                    horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.sm),
-                    verticalArrangement = Arrangement.spacedBy(PageTurnerSpacing.sm),
+                        .padding(innerPadding)
+                        .verticalScroll(rememberScrollState()),
                 ) {
-                    items(items = state.books, key = { it.bookKey }) { book ->
-                        BookGridCell(
-                            book = book,
-                            onClick = {
-                                viewModel.handleIntent(ReadingListIntent.SelectBook(book.bookKey))
-                            },
-                            onLongClick = { bookPendingRemoval = book },
+                    if (state.likedBooks.isNotEmpty()) {
+                        SectionHeader(
+                            title = "❤️ Liked",
+                            modifier = Modifier.padding(
+                                horizontal = PageTurnerSpacing.md,
+                                vertical = PageTurnerSpacing.sm,
+                            ),
+                        )
+                        BookGrid(
+                            books = state.likedBooks,
+                            onBookClick = { viewModel.handleIntent(ReadingListIntent.SelectBook(it)) },
+                            onBookLongClick = { book -> bookPendingRemoval = book },
                         )
                     }
+
+                    if (state.bookmarkedBooks.isNotEmpty()) {
+                        SectionHeader(
+                            title = "🔖 Bookmarked",
+                            modifier = Modifier.padding(
+                                horizontal = PageTurnerSpacing.md,
+                                vertical = PageTurnerSpacing.sm,
+                            ),
+                        )
+                        BookGrid(
+                            books = state.bookmarkedBooks,
+                            onBookClick = { viewModel.handleIntent(ReadingListIntent.SelectBook(it)) },
+                            onBookLongClick = { book -> bookPendingRemoval = book },
+                        )
+                    }
+
+                    Spacer(Modifier.height(PageTurnerSpacing.xl))
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section header
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
+    Text(
+        text = title,
+        style = PageTurnerType.CardTitle,
+        color = PageTurnerColors.OnSurface,
+        modifier = modifier,
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Non-lazy book grid (used inside a verticalScroll Column)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun BookGrid(
+    books: List<SavedBookUiModel>,
+    onBookClick: (String) -> Unit,
+    onBookLongClick: (SavedBookUiModel) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Simple manual 3-column grid that plays nicely inside a scrollable Column.
+    val rows = books.chunked(3)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = PageTurnerSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(PageTurnerSpacing.sm),
+    ) {
+        rows.forEach { rowBooks ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.sm),
+            ) {
+                rowBooks.forEach { book ->
+                    BookGridCell(
+                        book = book,
+                        onClick = { onBookClick(book.bookKey) },
+                        onLongClick = { onBookLongClick(book) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                // Fill empty slots in the last row so items don't stretch.
+                repeat(3 - rowBooks.size) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }

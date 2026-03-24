@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -104,8 +106,10 @@ fun BookDetailScreen(
                     BookDetailContent(
                         book = state.book!!,
                         isOffline = state.isOffline,
+                        isSaved = state.isSaved,
                         animatedVisibilityScope = animatedVisibilityScope,
                         onOpenLibrary = { viewModel.handleIntent(BookDetailIntent.OpenOnOpenLibrary) },
+                        onRemoveFromList = { viewModel.handleIntent(BookDetailIntent.RemoveFromList) },
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding),
@@ -125,8 +129,10 @@ fun BookDetailScreen(
 private fun SharedTransitionScope.BookDetailContent(
     book: BookDetailUiModel,
     isOffline: Boolean,
+    isSaved: Boolean,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onOpenLibrary: () -> Unit,
+    onRemoveFromList: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.verticalScroll(rememberScrollState())) {
@@ -238,6 +244,21 @@ private fun SharedTransitionScope.BookDetailContent(
                 textDecoration = TextDecoration.Underline,
                 modifier = Modifier.clickable(onClick = onOpenLibrary),
             )
+
+            // Remove from list button — only shown when book is in the reading list
+            if (isSaved) {
+                Spacer(Modifier.height(PageTurnerSpacing.md))
+                Button(
+                    onClick = onRemoveFromList,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PageTurnerColors.Error.copy(alpha = 0.12f),
+                        contentColor = PageTurnerColors.Error,
+                    ),
+                ) {
+                    Text(text = "Remove from Reading List", style = PageTurnerType.Body)
+                }
+            }
 
             Spacer(Modifier.height(PageTurnerSpacing.xl))
         }

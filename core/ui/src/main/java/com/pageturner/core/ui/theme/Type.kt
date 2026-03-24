@@ -10,40 +10,40 @@ import androidx.compose.ui.unit.sp
 object PageTurnerType {
     val AppTitle = TextStyle(
         fontFamily = FontFamily.Serif,
-        fontSize = 22.sp,
+        fontSize = 24.sp,
         fontWeight = FontWeight.Bold
     )
     val CardTitle = TextStyle(
         fontFamily = FontFamily.Serif,
-        fontSize = 18.sp,
+        fontSize = 20.sp,
         fontWeight = FontWeight.Bold
     )
     val DetailTitle = TextStyle(
         fontFamily = FontFamily.Serif,
-        fontSize = 24.sp,
+        fontSize = 26.sp,
         fontWeight = FontWeight.Bold
     )
     val Body = TextStyle(
-        fontSize = 14.sp,
-        lineHeight = 22.sp
+        fontSize = 16.sp,
+        lineHeight = 24.sp
     )
     val BodySmall = TextStyle(
-        fontSize = 12.sp,
-        lineHeight = 18.sp
+        fontSize = 14.sp,
+        lineHeight = 20.sp
     )
     /** Italic style used for all AI-generated content. */
     val AiBrief = TextStyle(
-        fontSize = 13.sp,
-        lineHeight = 20.sp,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
         fontStyle = FontStyle.Italic
     )
     val Label = TextStyle(
-        fontSize = 10.sp,
+        fontSize = 12.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.8.sp
     )
     val Chip = TextStyle(
-        fontSize = 10.sp,
+        fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.5.sp
     )

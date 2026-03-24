@@ -10,9 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,7 +43,6 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.pageturner.core.domain.model.Genre
 import com.pageturner.core.domain.model.ReadingLength
 import com.pageturner.core.ui.theme.PageTurnerColors
 import com.pageturner.core.ui.theme.PageTurnerSpacing
@@ -56,11 +53,10 @@ import kotlinx.coroutines.launch
  * Onboarding screen — shown exactly once on first launch.
  *
  * Collects the cold-start seed: genre preferences (multi-select) and preferred
- * book length (single-select). No back button. No skip.
+ * book length (multi-select). No back button. No skip.
  *
  * @param onNavigateToSwipeDeck called when the user confirms their preferences.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OnboardingScreen(
     onNavigateToSwipeDeck: () -> Unit,
@@ -182,17 +178,17 @@ fun OnboardingScreen(
             SectionLabel(text = "How long do you like your books?")
             Spacer(modifier = Modifier.height(PageTurnerSpacing.md))
 
-            Row(
+            FlowRow(
                 modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.sm)
+                horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.sm),
+                verticalArrangement   = Arrangement.spacedBy(PageTurnerSpacing.sm),
             ) {
                 ReadingLength.entries.forEach { length ->
-                    val isSelected = length == uiState.selectedLength
+                    val isSelected = length in uiState.selectedLengths
                     SelectableChip(
                         label      = length.displayName,
                         isSelected = isSelected,
-                        onClick    = { viewModel.onIntent(OnboardingIntent.SelectLength(length)) },
-                        modifier   = Modifier.weight(1f)
+                        onClick    = { viewModel.onIntent(OnboardingIntent.ToggleLength(length)) },
                     )
                 }
             }
