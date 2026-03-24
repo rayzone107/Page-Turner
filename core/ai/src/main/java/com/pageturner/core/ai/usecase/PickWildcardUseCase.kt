@@ -94,7 +94,7 @@ internal class PickWildcardUseCase @Inject constructor(
         WildcardResult(book = candidates.random(), reason = null)
 
     private companion object {
-        const val CLAUDE_MODEL  = "claude-sonnet-4-20250514"
+        const val CLAUDE_MODEL  = "claude-sonnet-4-6"
         const val AI_TIMEOUT_MS = 30_000L
     }
 }

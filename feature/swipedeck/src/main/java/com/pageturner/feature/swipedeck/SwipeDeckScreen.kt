@@ -33,8 +33,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,11 +45,13 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pageturner.core.domain.model.SwipeDirection
 import com.pageturner.core.ui.components.AiBriefShimmer
 import com.pageturner.core.ui.components.AiBriefText
 import com.pageturner.core.ui.components.AiLearningIndicator
@@ -75,6 +80,10 @@ fun SwipeDeckScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Tracks a pending programmatic swipe triggered by an action button.
+    // Cleared after the animation fires (inside the SwipeCard LaunchedEffect).
+    var pendingButtonSwipe by remember { mutableStateOf<SwipeDirection?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.sideEffects.collect { effect ->
@@ -128,8 +137,19 @@ fun SwipeDeckScreen(
                     SwipeCardStack(
                         cards = state.cards,
                         currentIndex = state.currentCardIndex,
-                        onSwipeLeft = { viewModel.handleIntent(SwipeDeckIntent.SwipeLeft(it)) },
-                        onSwipeRight = { viewModel.handleIntent(SwipeDeckIntent.SwipeRight(it)) },
+                        pendingButtonSwipe = pendingButtonSwipe,
+                        onSwipeLeft = { bookKey ->
+                            viewModel.handleIntent(SwipeDeckIntent.SwipeLeft(bookKey))
+                            pendingButtonSwipe = null
+                        },
+                        onSwipeRight = { bookKey ->
+                            viewModel.handleIntent(SwipeDeckIntent.SwipeRight(bookKey))
+                            pendingButtonSwipe = null
+                        },
+                        onBookmark = { bookKey ->
+                            viewModel.handleIntent(SwipeDeckIntent.Bookmark(bookKey))
+                            pendingButtonSwipe = null
+                        },
                         onExpand = { viewModel.handleIntent(SwipeDeckIntent.ExpandCard(it)) },
                         modifier = Modifier
                             .weight(1f)
@@ -151,15 +171,15 @@ fun SwipeDeckScreen(
                     ) {
                         SwipeActionButton(
                             type = SwipeActionType.SKIP,
-                            onClick = { viewModel.handleIntent(SwipeDeckIntent.SwipeLeft(currentCard.bookKey)) },
+                            onClick = { pendingButtonSwipe = SwipeDirection.LEFT },
                         )
                         SwipeActionButton(
                             type = SwipeActionType.BOOKMARK,
-                            onClick = { viewModel.handleIntent(SwipeDeckIntent.Bookmark(currentCard.bookKey)) },
+                            onClick = { pendingButtonSwipe = SwipeDirection.BOOKMARK },
                         )
                         SwipeActionButton(
                             type = SwipeActionType.SAVE,
-                            onClick = { viewModel.handleIntent(SwipeDeckIntent.SwipeRight(currentCard.bookKey)) },
+                            onClick = { pendingButtonSwipe = SwipeDirection.RIGHT },
                         )
                     }
                 }
@@ -176,8 +196,10 @@ fun SwipeDeckScreen(
 private fun SwipeCardStack(
     cards: List<SwipeCardUiModel>,
     currentIndex: Int,
+    pendingButtonSwipe: SwipeDirection?,
     onSwipeLeft: (String) -> Unit,
     onSwipeRight: (String) -> Unit,
+    onBookmark: (String) -> Unit,
     onExpand: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -189,15 +211,22 @@ private fun SwipeCardStack(
             val yOffset = (stackDepth * 14).dp
 
             if (stackDepth == 0) {
-                SwipeCard(
-                    card = card,
-                    onSwipeLeft = { onSwipeLeft(card.bookKey) },
-                    onSwipeRight = { onSwipeRight(card.bookKey) },
-                    onExpand = { onExpand(card.bookKey) },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .scale(scale),
-                )
+                // key() forces a fresh SwipeCard (and fresh Animatable state) whenever the
+                // top card changes, preventing the previous card's off-screen offset from
+                // carrying over to the new card after a drag-swipe.
+                key(card.bookKey) {
+                    SwipeCard(
+                        card = card,
+                        swipeTrigger = pendingButtonSwipe,
+                        onSwipeLeft = { onSwipeLeft(card.bookKey) },
+                        onSwipeRight = { onSwipeRight(card.bookKey) },
+                        onBookmark = { onBookmark(card.bookKey) },
+                        onExpand = { onExpand(card.bookKey) },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .scale(scale),
+                    )
+                }
             } else {
                 // Background cards visible as depth cues — not interactive.
                 Card(
@@ -223,14 +252,19 @@ private fun SwipeCardStack(
 @Composable
 private fun SwipeCard(
     card: SwipeCardUiModel,
+    swipeTrigger: SwipeDirection?,
     onSwipeLeft: () -> Unit,
     onSwipeRight: () -> Unit,
+    onBookmark: () -> Unit,
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val offsetX = remember { Animatable(0f) }
     val offsetY = remember { Animatable(0f) }
+
+    // Captured via onSizeChanged so the programmatic animation uses the real card width.
+    var cardWidthPx by remember { mutableStateOf(0f) }
 
     // Swipe threshold in px — drag past this to commit the swipe.
     val swipeThresholdPx = 120.dp.value * 3f // ~360f at typical density
@@ -239,8 +273,31 @@ private fun SwipeCard(
     val rotation = normalizedX * 12f
     val overlayAlpha = abs(normalizedX).coerceIn(0f, 0.75f)
 
+    // Programmatic swipe driven by action buttons.
+    // key changes whenever swipeTrigger changes, so the animation always fires fresh.
+    LaunchedEffect(swipeTrigger) {
+        val w = if (cardWidthPx > 0f) cardWidthPx else 1080f
+        when (swipeTrigger) {
+            SwipeDirection.LEFT -> {
+                offsetX.animateTo(-w * 2f, tween(durationMillis = 300))
+                onSwipeLeft()
+            }
+            SwipeDirection.RIGHT -> {
+                offsetX.animateTo(w * 2f, tween(durationMillis = 300))
+                onSwipeRight()
+            }
+            SwipeDirection.BOOKMARK -> {
+                // Animate upward for a distinct bookmark gesture.
+                offsetY.animateTo(-w * 2f, tween(durationMillis = 300))
+                onBookmark()
+            }
+            null -> { /* gesture-driven swipes manage their own animation */ }
+        }
+    }
+
     Card(
         modifier = modifier
+            .onSizeChanged { cardWidthPx = it.width.toFloat() }
             .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
             .rotate(rotation)
             .border(1.dp, PageTurnerColors.CardBorder, RoundedCornerShape(20.dp))
@@ -352,10 +409,10 @@ private fun SwipeCard(
                     MatchScoreBar(score = card.matchScore, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(PageTurnerSpacing.sm))
 
-                    if (card.aiBrief != null) {
-                        AiBriefText(brief = card.aiBrief)
-                    } else {
-                        AiBriefShimmer()
+                    when {
+                        card.aiBrief == null -> AiBriefShimmer()
+                        card.aiBrief.isNotBlank() -> AiBriefText(brief = card.aiBrief)
+                        // empty string = API failed → show nothing rather than spin forever
                     }
 
                     card.wildcardReason?.let { reason ->

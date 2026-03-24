@@ -61,7 +61,7 @@ internal class GenerateBriefUseCase @Inject constructor(
     }
 
     private companion object {
-        const val CLAUDE_MODEL    = "claude-sonnet-4-20250514"
+        const val CLAUDE_MODEL    = "claude-haiku-4-5-20251001"
         const val AI_TIMEOUT_MS   = 30_000L
     }
 }

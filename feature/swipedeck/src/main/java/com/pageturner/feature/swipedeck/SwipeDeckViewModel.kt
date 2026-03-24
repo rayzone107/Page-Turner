@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -55,6 +54,12 @@ class SwipeDeckViewModel @Inject constructor(
      */
     private val domainBookCache = mutableMapOf<String, Book>()
 
+    /** Genres the user selected during onboarding — stored for deck replenishment. */
+    private var userGenreSubjects: List<String> = emptyList()
+
+    /** Guards against concurrent deck-refresh calls. */
+    private var isRefreshingQueue = false
+
     init {
         viewModelScope.launch { initialize() }
         viewModelScope.launch { observeSwipeCount() }
@@ -79,7 +84,7 @@ class SwipeDeckViewModel @Inject constructor(
             return
         }
 
-        val userGenreSubjects = prefs.selectedGenres.map { it.openLibrarySubject }
+        userGenreSubjects = prefs.selectedGenres.map { it.openLibrarySubject }
 
         // Pick 3 genres the user did NOT select for the wildcard candidate pool.
         val offGenreSubjects = Genre.all()
@@ -90,9 +95,11 @@ class SwipeDeckViewModel @Inject constructor(
 
         viewModelScope.launch { loadWildcardPool(offGenreSubjects) }
 
-        // Restart the queue whenever seen keys change so already-swiped books are filtered.
-        val queueFlow = bookRepository.getSeenBookKeys()
-            .flatMapLatest { seen -> bookRepository.getSwipeQueue(userGenreSubjects, seen) }
+        // Snapshot seen keys ONCE at startup. Restarting the queue on every swipe via
+        // flatMapLatest blocks the UI for 7-8 s per swipe (cache miss → network round-trip).
+        // Deck replenishment is handled imperatively in performSwipe when the deck runs low.
+        val initialSeen = bookRepository.getSeenBookKeys().first()
+        val queueFlow = bookRepository.getSwipeQueue(userGenreSubjects, initialSeen)
 
         combine(queueFlow, wildcardPool, profileRepository.getProfile()) { books, wildcards, profile ->
             Triple(books, wildcards, profile)
@@ -125,15 +132,19 @@ class SwipeDeckViewModel @Inject constructor(
                 val wc = wildcards[wildcardIdx++]
                 val card = existingCards[wc.key] ?: wc.toUiModel(isWildcard = true)
                 result.add(card)
+                // Fire wildcard pick only for new slots; always retry brief if still missing.
                 if (existingCards[wc.key] == null) {
                     scheduleWildcardPick(result.lastIndex, wildcards, profile)
+                }
+                if (existingCards[wc.key]?.aiBrief == null) {
                     scheduleBrief(card, profileSummary, profileVersion)
                 }
             } else {
                 val book = books[regularIdx++]
                 val card = existingCards[book.key] ?: book.toUiModel()
                 result.add(card)
-                if (existingCards[book.key] == null) {
+                // Retry brief generation if the card exists but brief never arrived.
+                if (existingCards[book.key]?.aiBrief == null) {
                     scheduleBrief(card, profileSummary, profileVersion)
                 }
             }
@@ -165,9 +176,14 @@ class SwipeDeckViewModel @Inject constructor(
                 return@launch
             }
             val book = domainBookCache[card.bookKey] ?: return@launch
-            val brief = aiService.generateBrief(book, profileSummary) ?: return@launch
-            swipeRepository.cacheAiBrief(card.bookKey, profileVersion, brief)
-            updateCardBrief(card.bookKey, brief)
+            val brief = aiService.generateBrief(book, profileSummary)
+            if (brief != null) {
+                swipeRepository.cacheAiBrief(card.bookKey, profileVersion, brief)
+                updateCardBrief(card.bookKey, brief)
+            } else {
+                // API failed — set empty string so the shimmer clears instead of spinning forever.
+                updateCardBrief(card.bookKey, "")
+            }
         }
     }
 
@@ -284,7 +300,7 @@ class SwipeDeckViewModel @Inject constructor(
                 )
             )
 
-            if (direction == SwipeDirection.RIGHT) {
+            if (direction == SwipeDirection.RIGHT || direction == SwipeDirection.BOOKMARK) {
                 swipeRepository.saveBook(bookKey, card.aiBrief, card.wildcardReason, card.isWildcard)
             }
 
@@ -295,6 +311,32 @@ class SwipeDeckViewModel @Inject constructor(
                     currentCardIndex = newIdx,
                     isGeneratingBrief = nextCard != null && nextCard.aiBrief == null,
                 )
+            }
+
+            // Replenish the deck before it runs dry.
+            if (s.cards.size - newIdx <= 5) {
+                refreshQueueIfNeeded()
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Deck replenishment (called imperatively when deck runs low)
+    // ─────────────────────────────────────────────────────────────────
+
+    private fun refreshQueueIfNeeded() {
+        if (isRefreshingQueue || userGenreSubjects.isEmpty()) return
+        isRefreshingQueue = true
+        viewModelScope.launch {
+            try {
+                val seenKeys = bookRepository.getSeenBookKeys().first()
+                bookRepository.getSwipeQueue(userGenreSubjects, seenKeys)
+                    .collect { books ->
+                        val profile = profileRepository.getProfile().first()
+                        rebuildCards(books, wildcardPool.value, profile)
+                    }
+            } finally {
+                isRefreshingQueue = false
             }
         }
     }

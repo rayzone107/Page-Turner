@@ -96,6 +96,15 @@ fun TasteProfileScreen(
                         .padding(innerPadding)
                 )
             }
+
+            else -> {
+                // totalSwiped >= 10 but AI hasn't produced a profile yet (still building or failed).
+                BuildingProfileState(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                )
+            }
         }
     }
 }
@@ -213,6 +222,33 @@ private fun StatCard(
         Text(
             text = label,
             style = PageTurnerType.Label,
+            color = PageTurnerColors.OnSurfaceMuted,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profile building state (>= 10 swipes but AI hasn't returned a profile yet)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun BuildingProfileState(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(PageTurnerSpacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = "Building your profile…",
+            style = PageTurnerType.CardTitle,
+            color = PageTurnerColors.OnBackground,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(PageTurnerSpacing.sm))
+        Text(
+            text = "Claude is analysing your swipe history. This can take a few seconds after you swipe.",
+            style = PageTurnerType.Body,
             color = PageTurnerColors.OnSurfaceMuted,
             textAlign = TextAlign.Center,
         )

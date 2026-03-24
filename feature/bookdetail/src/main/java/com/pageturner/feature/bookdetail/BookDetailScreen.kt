@@ -213,7 +213,7 @@ private fun SharedTransitionScope.BookDetailContent(
             }
 
             // AI brief
-            book.aiBrief?.let { brief ->
+            book.aiBrief?.takeIf { it.isNotBlank() }?.let { brief ->
                 AiBriefText(brief = brief, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(PageTurnerSpacing.md))
             }

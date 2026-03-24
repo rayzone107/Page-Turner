@@ -37,9 +37,9 @@ class BookRepositoryImpl @Inject constructor(
         val cached = getFilteredBooks(genres, seenBookKeys)
         emit(cached.map { it.toDomain() })
 
-        // 2. Fetch more from Open Library if stock is low (< 5 books)
-        if (cached.size < 5) {
-            genres.take(2).forEach { genre ->
+        // 2. Fetch more from Open Library if stock is low (< 10 books)
+        if (cached.size < 10) {
+            genres.forEach { genre ->
                 safeApiCall { openLibraryApiService.searchBySubject(genre) }
                     .getOrNull()
                     ?.docs

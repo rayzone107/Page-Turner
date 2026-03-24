@@ -1,5 +1,6 @@
 package com.pageturner.feature.tasteprofile
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pageturner.core.domain.error.UiError
@@ -11,6 +12,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -22,10 +25,20 @@ class TasteProfileViewModel @Inject constructor(
 ) : ViewModel() {
 
     val state: StateFlow<TasteProfileUiState> = combine(
-        profileRepository.getProfile(),
-        swipeRepository.getSwipeCount(),
-        swipeRepository.getSavedBooks(),
+        profileRepository.getProfile()
+            .onStart { Log.d("TasteProfileVM", "getProfile flow started") }
+            .onEach   { Log.d("TasteProfileVM", "getProfile emitted: $it") }
+            .catch    { Log.e("TasteProfileVM", "getProfile threw", it); throw it },
+        swipeRepository.getSwipeCount()
+            .onStart { Log.d("TasteProfileVM", "getSwipeCount flow started") }
+            .onEach   { Log.d("TasteProfileVM", "getSwipeCount emitted: $it") }
+            .catch    { Log.e("TasteProfileVM", "getSwipeCount threw", it); throw it },
+        swipeRepository.getSavedBooks()
+            .onStart { Log.d("TasteProfileVM", "getSavedBooks flow started") }
+            .onEach   { Log.d("TasteProfileVM", "getSavedBooks emitted: ${it.size} books") }
+            .catch    { Log.e("TasteProfileVM", "getSavedBooks threw", it); throw it },
     ) { profile, totalSwiped, savedBooks ->
+        Log.d("TasteProfileVM", "combine firing: profile=${profile != null}, totalSwiped=$totalSwiped, saved=${savedBooks.size}")
         val stats = SwipeStats(
             totalSwiped = totalSwiped,
             totalSaved = savedBooks.size,
@@ -36,7 +49,8 @@ class TasteProfileViewModel @Inject constructor(
             swipeStats = stats,
         )
     }
-        .catch {
+        .catch { e ->
+            Log.e("TasteProfileVM", "combine pipeline threw", e)
             emit(
                 TasteProfileUiState(
                     error = UiError(
@@ -49,7 +63,7 @@ class TasteProfileViewModel @Inject constructor(
         }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
+            started = SharingStarted.Eagerly,
             initialValue = TasteProfileUiState(isLoading = true),
         )
 
