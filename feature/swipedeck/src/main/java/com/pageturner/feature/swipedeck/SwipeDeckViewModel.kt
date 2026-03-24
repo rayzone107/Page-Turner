@@ -57,6 +57,9 @@ class SwipeDeckViewModel @Inject constructor(
     /** Genres the user selected during onboarding — stored for deck replenishment. */
     private var userGenreSubjects: List<String> = emptyList()
 
+    /** All book keys the user has ever swiped — prevents wildcard repeats. */
+    private val seenBookKeys = mutableSetOf<String>()
+
     /** Guards against concurrent deck-refresh calls. */
     private var isRefreshingQueue = false
 
@@ -99,6 +102,7 @@ class SwipeDeckViewModel @Inject constructor(
         // flatMapLatest blocks the UI for 7-8 s per swipe (cache miss → network round-trip).
         // Deck replenishment is handled imperatively in performSwipe when the deck runs low.
         val initialSeen = bookRepository.getSeenBookKeys().first()
+        seenBookKeys.addAll(initialSeen)
         val queueFlow = bookRepository.getSwipeQueue(userGenreSubjects, initialSeen)
 
         combine(queueFlow, wildcardPool, profileRepository.getProfile()) { books, wildcards, profile ->
@@ -180,6 +184,9 @@ class SwipeDeckViewModel @Inject constructor(
         startPosition: Int,
     ): List<SwipeCardUiModel> {
         val existingCards = _state.value.cards.associateBy { it.bookKey }
+        val deckKeys = existingCards.keys.toMutableSet()
+        // Exclude wildcards the user has already swiped OR that are already in the deck.
+        val availableWildcards = wildcards.filter { it.key !in seenBookKeys && it.key !in deckKeys }
         val result = mutableListOf<SwipeCardUiModel>()
         var regularIdx = 0
         var wildcardIdx = 0
@@ -187,13 +194,16 @@ class SwipeDeckViewModel @Inject constructor(
 
         while (regularIdx < books.size) {
             position++
-            if (position % 4 == 0 && wildcardIdx < wildcards.size) {
-                val wc = wildcards[wildcardIdx++]
+            if (position % 4 == 0 && wildcardIdx < availableWildcards.size) {
+                val wc = availableWildcards[wildcardIdx++]
+                deckKeys.add(wc.key) // prevent the same wildcard in a later slot
                 val score = computeMatchScore(wc.subjects, profile)
                 val card = existingCards[wc.key]?.copy(matchScore = score)
                     ?: wc.toUiModel(isWildcard = true, matchScore = score)
                 result.add(card)
                 if (existingCards[wc.key] == null) {
+                    // Pass the full pool — scheduleWildcardPick filters against
+                    // seenBookKeys + current deck internally.
                     scheduleWildcardPick(startPosition + result.lastIndex, wildcards, profile)
                 }
                 if (existingCards[wc.key]?.aiBrief == null) {
@@ -251,12 +261,15 @@ class SwipeDeckViewModel @Inject constructor(
 
     private fun scheduleWildcardPick(cardIndex: Int, candidates: List<Book>, profile: TasteProfile?) {
         viewModelScope.launch {
-            if (candidates.isEmpty()) return@launch
+            // Exclude books the user has already swiped or that are currently in the deck.
+            val deckKeys = _state.value.cards.map { it.bookKey }.toSet()
+            val unseen = candidates.filter { it.key !in seenBookKeys && it.key !in deckKeys }
+            if (unseen.isEmpty()) return@launch
             val result: WildcardResult = if (profile != null) {
-                aiService.pickWildcard(profile, candidates)
-                    ?: WildcardResult(book = candidates.random(), reason = null)
+                aiService.pickWildcard(profile, unseen)
+                    ?: WildcardResult(book = unseen.random(), reason = null)
             } else {
-                WildcardResult(book = candidates.random(), reason = null)
+                WildcardResult(book = unseen.random(), reason = null)
             }
 
             domainBookCache[result.book.key] = result.book
@@ -277,15 +290,16 @@ class SwipeDeckViewModel @Inject constructor(
                 } else s
             }
 
-            // Schedule a brief for the picked card if it doesn't already have one.
-            // Without this, wildcard-picked cards that replace the placeholder book
-            // never get their brief generated (the original scheduleBrief targeted the
-            // placeholder's bookKey, which no longer exists in the card list).
-            val currentCard = _state.value.cards.getOrNull(cardIndex)
-            if (currentCard != null && currentCard.aiBrief == null) {
-                val profileSummary = profile?.aiSummary
-                val profileVersion = profile?.profileVersion ?: 0
-                scheduleBrief(currentCard, profileSummary, profileVersion)
+            // Schedule a brief only if the AI pick didn't produce a wildcardReason.
+            // When a wildcardReason exists, the UI shows it as the brief — no need
+            // for a separate aiBrief that would be hidden anyway.
+            if (result.reason.isNullOrBlank()) {
+                val currentCard = _state.value.cards.getOrNull(cardIndex)
+                if (currentCard != null && currentCard.aiBrief == null) {
+                    val profileSummary = profile?.aiSummary
+                    val profileVersion = profile?.profileVersion ?: 0
+                    scheduleBrief(currentCard, profileSummary, profileVersion)
+                }
             }
         }
     }
@@ -368,6 +382,7 @@ class SwipeDeckViewModel @Inject constructor(
                     wasWildcard = card.isWildcard,
                 )
             )
+            seenBookKeys.add(bookKey)
 
             if (direction == SwipeDirection.RIGHT || direction == SwipeDirection.BOOKMARK) {
                 swipeRepository.saveBook(
@@ -431,7 +446,7 @@ class SwipeDeckViewModel @Inject constructor(
         val existingKeys = _state.value.cards.map { it.bookKey }.toSet()
         val wildcards = wildcardPool.value
 
-        val uniqueNewBooks = newBooks.filter { it.key !in existingKeys }
+        val uniqueNewBooks = newBooks.filter { it.key !in existingKeys && it.key !in seenBookKeys }
         uniqueNewBooks.forEach { domainBookCache[it.key] = it }
 
         val cardsToAppend = mutableListOf<SwipeCardUiModel>()
@@ -442,7 +457,7 @@ class SwipeDeckViewModel @Inject constructor(
             position++
             // Interleave a wildcard every 4th overall position.
             if (position % 4 == 0 && wildcards.isNotEmpty()) {
-                val usedKeys = existingKeys + cardsToAppend.map { it.bookKey }.toSet()
+                val usedKeys = existingKeys + seenBookKeys + cardsToAppend.map { it.bookKey }.toSet()
                 val available = wildcards.filter { it.key !in usedKeys }
                 if (available.isNotEmpty()) {
                     val wc = available.random()

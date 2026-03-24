@@ -438,17 +438,16 @@ private fun StackedCard(
                     Spacer(Modifier.height(PageTurnerSpacing.sm))
                     // Only show shimmer on the top card to avoid infinite-animation
                     // recomposition on obscured background cards.
+                    // For wildcard cards the wildcardReason IS the personalised brief,
+                    // so we skip the generic aiBrief when a reason is present.
+                    val hasWildcardReason = !card.wildcardReason.isNullOrBlank()
                     when {
-                        card.aiBrief == null && isTop -> AiBriefShimmer()
-                        card.aiBrief != null && card.aiBrief.isNotBlank() -> AiBriefText(brief = card.aiBrief)
+                        !hasWildcardReason && card.aiBrief == null && isTop -> AiBriefShimmer()
+                        !hasWildcardReason && card.aiBrief != null && card.aiBrief.isNotBlank() -> AiBriefText(brief = card.aiBrief)
                     }
-                    card.wildcardReason?.let { reason ->
+                    card.wildcardReason?.takeIf { it.isNotBlank() }?.let { reason ->
                         Spacer(Modifier.height(PageTurnerSpacing.xs))
-                        Text(
-                            text = "✦ $reason",
-                            style = PageTurnerType.AiBrief,
-                            color = PageTurnerColors.Teal,
-                        )
+                        AiBriefText(brief = reason)
                     }
                     // "Details →" button only makes sense on the top interactive card.
                     if (isTop) {

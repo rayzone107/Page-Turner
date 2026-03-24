@@ -1,8 +1,14 @@
 package com.pageturner.core.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.Icon
@@ -14,13 +20,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 import androidx.palette.graphics.Palette
 import coil3.BitmapImage
-import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
-import coil3.compose.SubcomposeAsyncImageContent
 import com.pageturner.core.ui.theme.PageTurnerColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,7 +39,8 @@ import kotlinx.coroutines.withContext
  * Any empty space around the image is filled with the dominant colour extracted from
  * the cover using the Palette API, giving a natural-looking background.
  *
- * Falls back to a placeholder icon if the URL is null or the load fails.
+ * Shows a pulsing shimmer placeholder while loading, and falls back to a static icon
+ * if the URL is null or the load fails.
  */
 @Composable
 fun BookCoverImage(
@@ -54,40 +61,60 @@ fun BookCoverImage(
                 contentDescription = contentDescription,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit,
-                onState = { state ->
-                    if (state is AsyncImagePainter.State.Success) {
-                        val bitmap = (state.result.image as? BitmapImage)?.bitmap
-                        if (bitmap != null) {
-                            coroutineScope.launch {
-                                val extracted = withContext(Dispatchers.Default) {
-                                    // Coil decodes images as HARDWARE bitmaps by default.
-                                    // HARDWARE bitmaps don't allow pixel access (getPixels),
-                                    // which Palette requires — copy to a software bitmap first.
-                                    val softCopy = bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
-                                    val color = Palette.from(softCopy).generate()
-                                        .getDominantColor(0xFF888888.toInt())
-                                    softCopy.recycle()
-                                    color
-                                }
-                                dominantColor = Color(extracted)
+                loading = { CoverShimmerPlaceholder(modifier = Modifier.fillMaxSize()) },
+                error = { BookCoverPlaceholder(modifier = Modifier.fillMaxSize()) },
+                onSuccess = { successState ->
+                    val bitmap = (successState.result.image as? BitmapImage)?.bitmap
+                    if (bitmap != null) {
+                        coroutineScope.launch {
+                            val extracted = withContext(Dispatchers.Default) {
+                                val softCopy = bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+                                val color = Palette.from(softCopy).generate()
+                                    .getDominantColor(0xFF888888.toInt())
+                                softCopy.recycle()
+                                color
                             }
+                            dominantColor = Color(extracted)
                         }
                     }
                 },
-            ) {
-                when (painter.state) {
-                    is AsyncImagePainter.State.Loading,
-                    is AsyncImagePainter.State.Empty,
-                    is AsyncImagePainter.State.Error -> BookCoverPlaceholder(modifier = Modifier.fillMaxSize())
-                    else -> SubcomposeAsyncImageContent()
-                }
-            }
+            )
         } else {
             BookCoverPlaceholder(modifier = Modifier.fillMaxSize())
         }
     }
 }
 
+/** Pulsing shimmer shown while a cover image is loading. */
+@Composable
+private fun CoverShimmerPlaceholder(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "cover_shimmer")
+    val alpha by transition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.65f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "cover_shimmer_alpha",
+    )
+
+    Box(
+        modifier = modifier.background(PageTurnerColors.SurfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.MenuBook,
+            contentDescription = null,
+            tint = PageTurnerColors.OnSurfaceMuted,
+            modifier = Modifier
+                .size(48.dp)
+                .alpha(alpha),
+        )
+    }
+}
+
+/** Static fallback shown when the URL is null or the load fails. */
 @Composable
 private fun BookCoverPlaceholder(modifier: Modifier = Modifier) {
     Box(
