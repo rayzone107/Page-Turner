@@ -2,14 +2,11 @@ package com.pageturner.core.data.repository
 
 import com.pageturner.core.data.db.dao.BookDao
 import com.pageturner.core.data.db.dao.SwipeEventDao
-import com.pageturner.core.data.mapper.calculateMatchScore
 import com.pageturner.core.data.mapper.toDomain
 import com.pageturner.core.data.mapper.toDetailDomain
 import com.pageturner.core.data.mapper.toEntity
-import com.pageturner.core.domain.error.AppError
 import com.pageturner.core.domain.model.Book
 import com.pageturner.core.domain.model.BookDetail
-import com.pageturner.core.domain.model.TasteProfile
 import com.pageturner.core.domain.repository.BookRepository
 import com.pageturner.core.domain.util.Result
 import com.pageturner.core.network.api.OpenLibraryApiService
@@ -85,6 +82,20 @@ class BookRepositoryImpl @Inject constructor(
 
     override suspend fun cacheBook(book: Book) {
         // No-op for simple books passed in from outside; upsert is handled during queue building
+    }
+
+    override suspend fun prefetchBookDetail(bookKey: String) {
+        // Skip if description already stored locally.
+        val cached = bookDao.getBook(bookKey)
+        if (cached?.description != null) return
+
+        val workId = bookKey.removePrefix("/works/")
+        // safeApiCall wraps any IOException / HTTP error — result is intentionally ignored
+        // here because this is a best-effort prefetch that must not surface errors to the UI.
+        safeApiCall {
+            val detail = openLibraryApiService.getWorkDetail(workId)
+            detail.description?.let { desc -> bookDao.updateDescription(bookKey, desc) }
+        }
     }
 
     override fun getSeenBookKeys(): Flow<Set<String>> =

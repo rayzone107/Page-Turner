@@ -141,7 +141,10 @@ private fun ProfileContent(
         if (profile.likedGenres.isNotEmpty()) {
             SectionHeader(text = "What you love")
             Spacer(Modifier.height(PageTurnerSpacing.sm))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.xs)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.xs),
+                verticalArrangement = Arrangement.spacedBy(PageTurnerSpacing.sm),
+            ) {
                 profile.likedGenres.forEach { genre -> GenreChip(label = genre) }
             }
             Spacer(Modifier.height(PageTurnerSpacing.lg))
@@ -151,7 +154,10 @@ private fun ProfileContent(
         if (profile.avoidedGenres.isNotEmpty()) {
             SectionHeader(text = "You tend to skip")
             Spacer(Modifier.height(PageTurnerSpacing.sm))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.xs)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.xs),
+                verticalArrangement = Arrangement.spacedBy(PageTurnerSpacing.sm),
+            ) {
                 profile.avoidedGenres.forEach { genre -> AvoidedGenreChip(label = genre) }
             }
             Spacer(Modifier.height(PageTurnerSpacing.lg))

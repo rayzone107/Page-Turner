@@ -33,6 +33,7 @@ data class SwipeCardUiModel(
 internal fun Book.toUiModel(
     isWildcard: Boolean = this.isWildcard,
     wildcardReason: String? = this.wildcardReason,
+    matchScore: Float = this.matchScore,
 ): SwipeCardUiModel = SwipeCardUiModel(
     bookKey = key,
     title = title,

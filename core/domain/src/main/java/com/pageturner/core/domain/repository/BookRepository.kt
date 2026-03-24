@@ -20,6 +20,13 @@ interface BookRepository {
     /** Returns the full detail for a book. Checks Room cache first, then network. */
     suspend fun getBookDetail(bookKey: String): Result<BookDetail>
 
+    /**
+     * Best-effort prefetch: fetches the work description from the network and persists it
+     * to Room so the detail screen is available offline. Silently no-ops if the description
+     * is already cached or if the network call fails.
+     */
+    suspend fun prefetchBookDetail(bookKey: String)
+
     /** Upserts a book into the local cache. */
     suspend fun cacheBook(book: Book)
 

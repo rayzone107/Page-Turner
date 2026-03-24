@@ -130,7 +130,8 @@ class SwipeDeckViewModel @Inject constructor(
             position++
             if (position % 7 == 0 && wildcardIdx < wildcards.size) {
                 val wc = wildcards[wildcardIdx++]
-                val card = existingCards[wc.key] ?: wc.toUiModel(isWildcard = true)
+                val card = existingCards[wc.key]
+                    ?: wc.toUiModel(isWildcard = true, matchScore = computeMatchScore(wc.subjects, profile))
                 result.add(card)
                 // Fire wildcard pick only for new slots; always retry brief if still missing.
                 if (existingCards[wc.key] == null) {
@@ -141,7 +142,8 @@ class SwipeDeckViewModel @Inject constructor(
                 }
             } else {
                 val book = books[regularIdx++]
-                val card = existingCards[book.key] ?: book.toUiModel()
+                val card = existingCards[book.key]
+                    ?: book.toUiModel(matchScore = computeMatchScore(book.subjects, profile))
                 result.add(card)
                 // Retry brief generation if the card exists but brief never arrived.
                 if (existingCards[book.key]?.aiBrief == null) {
@@ -308,6 +310,9 @@ class SwipeDeckViewModel @Inject constructor(
                     isWildcard     = card.isWildcard,
                     isBookmarked   = direction == SwipeDirection.BOOKMARK,
                 )
+                // Prefetch the work description so the detail page works offline.
+                // Launched in a separate coroutine so it never blocks the swipe animation.
+                viewModelScope.launch { bookRepository.prefetchBookDetail(bookKey) }
             }
 
             val newIdx = s.currentCardIndex + 1
@@ -345,5 +350,24 @@ class SwipeDeckViewModel @Inject constructor(
                 isRefreshingQueue = false
             }
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Local score calculation (mirrors BookMapper.calculateMatchScore but
+    // operates on domain-layer List<String> instead of a serialised JSON string,
+    // keeping the feature module free of core:data imports).
+    // ─────────────────────────────────────────────────────────────────
+    private fun computeMatchScore(subjects: List<String>, profile: TasteProfile?): Float {
+        if (profile == null) return 0.5f
+        if (profile.likedGenres.isEmpty() && profile.avoidedGenres.isEmpty()) return 0.5f
+        val subjectsLower = subjects.map { it.lowercase() }
+        val liked   = profile.likedGenres.map  { it.lowercase() }
+        val avoided = profile.avoidedGenres.map { it.lowercase() }
+        var score = 0.5f
+        for (subject in subjectsLower) {
+            if (liked.any   { l -> subject.contains(l) || l.contains(subject) }) score += 0.1f
+            if (avoided.any { a -> subject.contains(a) || a.contains(subject) }) score -= 0.1f
+        }
+        return score.coerceIn(0.05f, 0.99f)
     }
 }
