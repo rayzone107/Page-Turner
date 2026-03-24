@@ -19,5 +19,5 @@ abstract class AiModule {
 
     @Binds
     @Singleton
-    abstract fun bindAiService(impl: ClaudeAiService): AiService
+    internal abstract fun bindAiService(impl: ClaudeAiService): AiService
 }
