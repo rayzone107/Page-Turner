@@ -30,6 +30,13 @@ interface BookRepository {
     /** Upserts a book into the local cache. */
     suspend fun cacheBook(book: Book)
 
+    /**
+     * Fetches the next page of unseen books for the given [genres].
+     * Tracks page numbers internally so each call advances to a new page.
+     * Returns only books whose key is NOT in [seenBookKeys].
+     */
+    suspend fun fetchNextPage(genres: List<String>, seenBookKeys: Set<String>): List<Book>
+
     /** Keys of all books the user has ever seen (swiped in any direction). */
     fun getSeenBookKeys(): Flow<Set<String>>
 }

@@ -26,6 +26,9 @@ class BookRepositoryImpl @Inject constructor(
     private val openLibraryApiService: OpenLibraryApiService
 ) : BookRepository {
 
+    /** Tracks the last fetched page per genre so each replenishment advances forward. */
+    private val genrePageCounter = mutableMapOf<String, Int>()
+
     override fun getSwipeQueue(
         genres: List<String>,
         seenBookKeys: Set<String>
@@ -96,6 +99,27 @@ class BookRepositoryImpl @Inject constructor(
             val detail = openLibraryApiService.getWorkDetail(workId)
             detail.description?.let { desc -> bookDao.updateDescription(bookKey, desc) }
         }
+    }
+
+    override suspend fun fetchNextPage(
+        genres: List<String>,
+        seenBookKeys: Set<String>
+    ): List<Book> {
+        val newBooks = mutableListOf<Book>()
+        for (genre in genres) {
+            val nextPage = (genrePageCounter[genre] ?: 1) + 1
+            genrePageCounter[genre] = nextPage
+            safeApiCall { openLibraryApiService.searchBySubject(genre, page = nextPage) }
+                .getOrNull()
+                ?.docs
+                ?.filter { !it.key.isNullOrEmpty() && it.key !in seenBookKeys }
+                ?.forEach { doc ->
+                    val entity = doc.toEntity()
+                    bookDao.upsertBook(entity)
+                    newBooks.add(entity.toDomain())
+                }
+        }
+        return newBooks.distinctBy { it.key }
     }
 
     override fun getSeenBookKeys(): Flow<Set<String>> =

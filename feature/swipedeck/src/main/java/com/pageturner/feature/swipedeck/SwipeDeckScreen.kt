@@ -51,7 +51,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pageturner.core.domain.model.SwipeDirection
 import com.pageturner.core.ui.components.AiBriefShimmer
@@ -133,7 +133,13 @@ fun SwipeDeckScreen(
                 }
 
                 state.currentCardIndex >= state.cards.size -> {
-                    EmptyShelfState(modifier = Modifier.fillMaxSize())
+                    if (state.isReplenishing) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            LoadingIndicator()
+                        }
+                    } else {
+                        EmptyShelfState(modifier = Modifier.fillMaxSize())
+                    }
                 }
 
                 else -> {
@@ -421,15 +427,20 @@ private fun StackedCard(
                         )
                     }
                     Spacer(Modifier.height(PageTurnerSpacing.xs))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.xs)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(PageTurnerSpacing.xs),
+                        verticalArrangement = Arrangement.spacedBy(PageTurnerSpacing.xs),
+                    ) {
                         card.subjects.take(3).forEach { subject -> GenreChip(label = subject) }
                     }
                     Spacer(Modifier.height(PageTurnerSpacing.sm))
                     MatchScoreBar(score = card.matchScore, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(PageTurnerSpacing.sm))
+                    // Only show shimmer on the top card to avoid infinite-animation
+                    // recomposition on obscured background cards.
                     when {
-                        card.aiBrief == null -> AiBriefShimmer()
-                        card.aiBrief.isNotBlank() -> AiBriefText(brief = card.aiBrief)
+                        card.aiBrief == null && isTop -> AiBriefShimmer()
+                        card.aiBrief != null && card.aiBrief.isNotBlank() -> AiBriefText(brief = card.aiBrief)
                     }
                     card.wildcardReason?.let { reason ->
                         Spacer(Modifier.height(PageTurnerSpacing.xs))

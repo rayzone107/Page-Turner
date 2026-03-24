@@ -9,6 +9,7 @@ data class SwipeDeckUiState(
     val cards: List<SwipeCardUiModel> = emptyList(),
     val isLoading: Boolean = true,
     val isGeneratingBrief: Boolean = false,
+    val isReplenishing: Boolean = false,
     val error: UiError? = null,
     val isOffline: Boolean = false,
     val swipeCount: Int = 0,

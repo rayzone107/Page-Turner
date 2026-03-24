@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +32,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -49,7 +54,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pageturner.core.ui.components.BookCoverImage
 import com.pageturner.core.ui.components.EmptyShelfState
@@ -120,43 +125,57 @@ fun ReadingListScreen(
             }
 
             else -> {
+                val pagerState = rememberPagerState(pageCount = { 2 })
+
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
-                        .verticalScroll(rememberScrollState()),
+                        .padding(innerPadding),
                 ) {
-                    if (state.likedBooks.isNotEmpty()) {
-                        SectionHeader(
-                            title = "❤️ Liked",
-                            modifier = Modifier.padding(
-                                horizontal = PageTurnerSpacing.md,
-                                vertical = PageTurnerSpacing.sm,
-                            ),
-                        )
-                        BookGrid(
-                            books = state.likedBooks,
-                            onBookClick = { viewModel.handleIntent(ReadingListIntent.SelectBook(it)) },
-                            onBookLongClick = { book -> bookPendingRemoval = book },
-                        )
-                    }
+                    ReadingListTabs(
+                        selectedIndex = pagerState.currentPage,
+                        likedCount = state.likedBooks.size,
+                        bookmarkedCount = state.bookmarkedBooks.size,
+                        onTabSelected = { index ->
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        },
+                    )
 
-                    if (state.bookmarkedBooks.isNotEmpty()) {
-                        SectionHeader(
-                            title = "🔖 Bookmarked",
-                            modifier = Modifier.padding(
-                                horizontal = PageTurnerSpacing.md,
-                                vertical = PageTurnerSpacing.sm,
-                            ),
-                        )
-                        BookGrid(
-                            books = state.bookmarkedBooks,
-                            onBookClick = { viewModel.handleIntent(ReadingListIntent.SelectBook(it)) },
-                            onBookLongClick = { book -> bookPendingRemoval = book },
-                        )
-                    }
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                    ) { page ->
+                        val books = when (page) {
+                            0 -> state.likedBooks
+                            else -> state.bookmarkedBooks
+                        }
 
-                    Spacer(Modifier.height(PageTurnerSpacing.xl))
+                        if (books.isEmpty()) {
+                            TabEmptyState(
+                                message = when (page) {
+                                    0 -> "Swipe right on books you like\nand they'll appear here."
+                                    else -> "Use the bookmark button\nto save books for later."
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(top = PageTurnerSpacing.sm),
+                            ) {
+                                BookGrid(
+                                    books = books,
+                                    onBookClick = {
+                                        viewModel.handleIntent(ReadingListIntent.SelectBook(it))
+                                    },
+                                    onBookLongClick = { book -> bookPendingRemoval = book },
+                                )
+                                Spacer(Modifier.height(PageTurnerSpacing.xl))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -164,17 +183,76 @@ fun ReadingListScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section header
+// Tabs
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
-    Text(
-        text = title,
-        style = PageTurnerType.CardTitle,
-        color = PageTurnerColors.OnSurface,
+private fun ReadingListTabs(
+    selectedIndex: Int,
+    likedCount: Int,
+    bookmarkedCount: Int,
+    onTabSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    @OptIn(ExperimentalMaterial3Api::class)
+    SecondaryTabRow(
+        selectedTabIndex = selectedIndex,
         modifier = modifier,
-    )
+        containerColor = PageTurnerColors.Background,
+        contentColor = PageTurnerColors.Accent,
+        indicator = {
+            TabRowDefaults.SecondaryIndicator(
+                color = PageTurnerColors.Accent,
+            )
+        },
+    ) {
+        Tab(
+            selected = selectedIndex == 0,
+            onClick = { onTabSelected(0) },
+            text = {
+                Text(
+                    text = "❤️ Liked ($likedCount)",
+                    style = PageTurnerType.Body,
+                )
+            },
+            selectedContentColor = PageTurnerColors.Accent,
+            unselectedContentColor = PageTurnerColors.OnSurfaceMuted,
+        )
+        Tab(
+            selected = selectedIndex == 1,
+            onClick = { onTabSelected(1) },
+            text = {
+                Text(
+                    text = "🔖 Bookmarked ($bookmarkedCount)",
+                    style = PageTurnerType.Body,
+                )
+            },
+            selectedContentColor = PageTurnerColors.Accent,
+            unselectedContentColor = PageTurnerColors.OnSurfaceMuted,
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-tab empty state
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun TabEmptyState(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.padding(PageTurnerSpacing.xl),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = message,
+            style = PageTurnerType.Body,
+            color = PageTurnerColors.OnSurfaceMuted,
+            textAlign = TextAlign.Center,
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

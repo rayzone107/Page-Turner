@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Bash(cat:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(mkdir -p /Users/rachit/AndroidStudioProjects/PageTurner/app/src/main/java/com/pageturner/di && cat > /Users/rachit/AndroidStudioProjects/PageTurner/app/src/main/java/com/pageturner/di/AppModule.kt << 'EOF'\npackage com.pageturner.di\n\nimport com.pageturner.BuildConfig\nimport dagger.Module\nimport dagger.Provides\nimport dagger.hilt.InstallIn\nimport dagger.hilt.components.SingletonComponent\nimport javax.inject.Named\n\n@Module\n@InstallIn\\(SingletonComponent::class\\)\nobject AppModule {\n\n    /**\n     * Provides the Anthropic API key from BuildConfig.\n     * The key is read from local.properties at build time and never hard-coded or logged.\n     */\n    @Provides\n    @Named\\(\"anthropic_api_key\"\\)\n    fun provideAnthropicApiKey\\(\\): String = BuildConfig.ANTHROPIC_API_KEY\n}\nEOF)",
+      "Bash(git:*)"
+    ],
+    "deny": []
+  }
+}
