@@ -24,7 +24,7 @@ import javax.inject.Singleton
  * The Anthropic SDK and API key are fully isolated within this module.
  */
 @Singleton
-class ClaudeAiService @Inject constructor(
+internal class ClaudeAiService @Inject constructor(
     private val generateBriefUseCase: GenerateBriefUseCase,
     private val summarizeProfileUseCase: SummarizeProfileUseCase,
     private val pickWildcardUseCase: PickWildcardUseCase

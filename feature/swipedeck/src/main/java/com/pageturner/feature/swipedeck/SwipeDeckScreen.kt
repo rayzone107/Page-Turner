@@ -144,7 +144,8 @@ fun SwipeDeckScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = PageTurnerSpacing.xl, bottom = PageTurnerSpacing.lg),
+                            .padding(horizontal = PageTurnerSpacing.xl)
+                            .padding(bottom = PageTurnerSpacing.lg),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

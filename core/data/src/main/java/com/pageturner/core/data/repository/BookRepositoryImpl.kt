@@ -72,8 +72,9 @@ class BookRepositoryImpl @Inject constructor(
         val workId = bookKey.removePrefix("/works/")
         return safeApiCall {
             val detail = openLibraryApiService.getWorkDetail(workId)
-            if (detail.description != null) {
-                bookDao.updateDescription(bookKey, detail.description)
+            val description = detail.description
+            if (description != null) {
+                bookDao.updateDescription(bookKey, description)
             }
             (cached ?: bookDao.getBook(bookKey))
                 ?.copy(description = detail.description ?: cached?.description)

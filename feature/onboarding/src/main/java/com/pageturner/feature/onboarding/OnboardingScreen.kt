@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -137,7 +138,7 @@ fun OnboardingScreen(
             // Animated wordmark
             Text(
                 text     = "PageTurner",
-                style    = PageTurnerType.AppTitle.copy(fontSize = androidx.compose.ui.unit.sp(32f)),
+                style    = PageTurnerType.AppTitle.copy(fontSize = 32.sp),
                 color    = PageTurnerColors.OnBackground,
                 modifier = Modifier
                     .alpha(wordmarkAlpha.value)

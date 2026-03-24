@@ -141,7 +141,7 @@ private fun SharedTransitionScope.BookDetailContent(
                     .fillMaxWidth()
                     .height(300.dp)
                     .sharedElement(
-                        state = rememberSharedContentState(key = bookCoverSharedKey(book.bookKey)),
+                        sharedContentState = rememberSharedContentState(key = bookCoverSharedKey(book.bookKey)),
                         animatedVisibilityScope = animatedVisibilityScope,
                     ),
             )
