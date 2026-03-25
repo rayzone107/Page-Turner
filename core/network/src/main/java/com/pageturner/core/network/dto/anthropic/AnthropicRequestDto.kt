@@ -8,7 +8,8 @@ import com.squareup.moshi.JsonClass
 data class AnthropicRequestDto(
     @Json(name = "model") val model: String,
     @Json(name = "max_tokens") val maxTokens: Int,
-    @Json(name = "messages") val messages: List<AnthropicMessageDto>
+    @Json(name = "messages") val messages: List<AnthropicMessageDto>,
+    @Json(name = "system") val system: String,
 )
 
 @JsonClass(generateAdapter = true)

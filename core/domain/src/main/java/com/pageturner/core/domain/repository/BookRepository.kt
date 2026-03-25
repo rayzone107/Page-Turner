@@ -27,9 +27,6 @@ interface BookRepository {
      */
     suspend fun prefetchBookDetail(bookKey: String)
 
-    /** Upserts a book into the local cache. */
-    suspend fun cacheBook(book: Book)
-
     /**
      * Fetches the next page of unseen books for the given [genres].
      * Tracks page numbers internally so each call advances to a new page.

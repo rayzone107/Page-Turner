@@ -1,5 +1,6 @@
 package com.pageturner.core.ai.usecase
 
+import com.pageturner.core.ai.AiModels
 import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Book
 import com.pageturner.core.domain.service.AiResult
@@ -62,15 +63,19 @@ internal class GenerateBriefUseCase @Inject constructor(
         """.trimIndent()
 
         return AnthropicRequestDto(
-            model     = CLAUDE_MODEL,
+            model     = AiModels.HAIKU,
             maxTokens = 200,
+            system    = SYSTEM_PROMPT,
             messages  = listOf(AnthropicMessageDto(role = "user", content = prompt))
         )
     }
 
     private companion object {
-        const val TAG             = "GenerateBriefUseCase"
-        const val CLAUDE_MODEL    = "claude-haiku-4-5-20251001"
-        const val AI_TIMEOUT_MS   = 30_000L
+        const val TAG           = "GenerateBriefUseCase"
+        const val AI_TIMEOUT_MS = 30_000L
+        const val SYSTEM_PROMPT =
+            "You are a book recommendation assistant. Write personalized hooks for readers — " +
+            "never plot summaries. Be specific to the reader's taste. " +
+            "Output only the requested sentences with no preamble and no quotation marks."
     }
 }

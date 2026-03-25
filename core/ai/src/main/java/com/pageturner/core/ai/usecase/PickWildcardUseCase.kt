@@ -1,5 +1,6 @@
 package com.pageturner.core.ai.usecase
 
+import com.pageturner.core.ai.AiModels
 import com.pageturner.core.ai.dto.WildcardPickDto
 import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Book
@@ -75,8 +76,9 @@ internal class PickWildcardUseCase @Inject constructor(
         """.trimIndent()
 
         return AnthropicRequestDto(
-            model     = CLAUDE_MODEL,
+            model     = AiModels.SONNET,
             maxTokens = 200,
+            system    = SYSTEM_PROMPT,
             messages  = listOf(AnthropicMessageDto(role = "user", content = prompt))
         )
     }
@@ -99,7 +101,10 @@ internal class PickWildcardUseCase @Inject constructor(
 
     private companion object {
         const val TAG           = "PickWildcardUseCase"
-        const val CLAUDE_MODEL  = "claude-sonnet-4-6"
         const val AI_TIMEOUT_MS = 30_000L
+        const val SYSTEM_PROMPT =
+            "You are a book curator who finds unexpected but resonant reads. " +
+            "Always respond with valid JSON only — no markdown fences, no preamble, no explanation. " +
+            "Follow the exact schema provided in the user message."
     }
 }

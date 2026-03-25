@@ -17,7 +17,7 @@ import java.net.SocketTimeoutException
 suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> = try {
     Result.Success(call())
 } catch (e: SocketTimeoutException) {
-    Result.Failure(AppError.AiTimeoutError)
+    Result.Failure(AppError.TimeoutError)
 } catch (e: HttpException) {
     when (e.code()) {
         404  -> Result.Failure(AppError.NotFoundError)

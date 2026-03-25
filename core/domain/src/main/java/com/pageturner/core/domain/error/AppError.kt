@@ -7,7 +7,7 @@ sealed class AppError {
     data object NotFoundError : AppError()
     /** AI degrades gracefully — never blocks the UI. */
     data class AiError(val message: String?) : AppError()
-    data object AiTimeoutError : AppError()
+    data object TimeoutError : AppError()
     data class UnknownError(val message: String?) : AppError()
     data object CacheExpiredError : AppError()
 }

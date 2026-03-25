@@ -56,8 +56,9 @@ class BookRepositoryImpl @Inject constructor(
                 .docs
                 .filter { !it.key.isNullOrEmpty() }
                 .map { doc ->
-                    bookDao.upsertBook(doc.toEntity())
-                    doc.toEntity().toDomain()
+                    val entity = doc.toEntity()
+                    bookDao.upsertBook(entity)
+                    entity.toDomain()
                 }
         }
 
@@ -78,10 +79,6 @@ class BookRepositoryImpl @Inject constructor(
                 ?.toDetailDomain()
                 ?: throw Exception("Book not found: $bookKey")
         }
-    }
-
-    override suspend fun cacheBook(book: Book) {
-        // No-op: upsert is handled during queue building
     }
 
     override suspend fun prefetchBookDetail(bookKey: String) {

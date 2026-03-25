@@ -1,5 +1,6 @@
 package com.pageturner.core.ai.usecase
 
+import com.pageturner.core.ai.AiModels
 import com.pageturner.core.ai.dto.ProfileSummaryDto
 import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Genre
@@ -88,8 +89,9 @@ internal class SummarizeProfileUseCase @Inject constructor(
         """.trimIndent()
 
         return AnthropicRequestDto(
-            model     = CLAUDE_MODEL,
+            model     = AiModels.SONNET,
             maxTokens = 500,
+            system    = SYSTEM_PROMPT,
             messages  = listOf(AnthropicMessageDto(role = "user", content = prompt))
         )
     }
@@ -117,7 +119,10 @@ internal class SummarizeProfileUseCase @Inject constructor(
 
     private companion object {
         const val TAG           = "SummarizeProfileUseCase"
-        const val CLAUDE_MODEL  = "claude-sonnet-4-6"
         const val AI_TIMEOUT_MS = 45_000L
+        const val SYSTEM_PROMPT =
+            "You analyze reading behavior and produce structured taste profiles. " +
+            "Always respond with valid JSON only — no markdown fences, no preamble, no explanation. " +
+            "Follow the exact schema provided in the user message."
     }
 }
