@@ -12,9 +12,8 @@ curveball designed to expand your reading.
 - **Pattern:** MVI + Clean Architecture, strictly layered
 - **Modules:** Multi-module Gradle
 - **Stack:** Kotlin, Jetpack Compose, Hilt, Room, Retrofit, Coil, Coroutines + Flow
-- **AI:** Claude API (claude-sonnet-4-20250514) — brief generation, taste profiling,
-  wildcard selection. Isolated in :core:ai, degrades gracefully on failure.
-- **Frameworks:** MAARS (architecture standards) + CRAFT (AI agent workflow)
+- **AI:** Anthropic Claude API — brief generation (Haiku), taste profiling and wildcard
+  selection (Sonnet). Isolated in :core:ai behind an interface, degrades gracefully on failure.
 
 ## Module graph
 
@@ -44,7 +43,7 @@ All three degrade gracefully. The swipe deck never blocks waiting for AI.
 
 1. Clone the repo
 2. Add `ANTHROPIC_API_KEY=sk-ant-...` to `local.properties` (never commit this)
-3. Open in Android Studio Iguana or later (Compose 1.7+ required)
+3. Open in Android Studio Meerkat 2025.1 or later
 4. Run on emulator or device (min SDK 26)
 5. Open Library is public — no other API keys needed
 
@@ -56,8 +55,8 @@ All three degrade gracefully. The swipe deck never blocks waiting for AI.
 ./gradlew :feature:swipedeck:test    -- swipe deck ViewModel + logic tests
 ```
 
-## AI Agent workflow
+## How this was built
 
-Built with the CRAFT multi-agent pipeline. See AGENTS.md and docs/agents/ for
-agent system prompts. See git log — agent/* branches show each agent's contribution
-to each feature, from spec through implementation through review.
+Built with Claude Code using a structured workflow: brainstorm → spec → implementation plan →
+incremental execution. Design documents are in `docs/superpowers/`. Agent role definitions
+and system prompts are in `docs/agents/` and `AGENTS.md`.
