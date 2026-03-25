@@ -7,8 +7,6 @@ history and writes a profile of you as a reader. That profile shapes everything:
 the books you see next, how they're described to you, and the occasional intentional
 curveball designed to expand your reading.
 
-Built for the Mistplay Android Engineering Challenge.
-
 ## Architecture
 
 - **Pattern:** MVI + Clean Architecture, strictly layered
