@@ -2,6 +2,8 @@ package com.pageturner.feature.tasteprofile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pageturner.core.analytics.AnalyticsEvent
+import com.pageturner.core.analytics.AnalyticsTracker
 import com.pageturner.core.domain.error.UiError
 import com.pageturner.core.domain.repository.ProfileRepository
 import com.pageturner.core.domain.repository.SwipeRepository
@@ -23,7 +25,12 @@ class TasteProfileViewModel @Inject constructor(
     swipeRepository: SwipeRepository,
     aiService: AiService,
     private val logger: AppLogger,
+    private val analytics: AnalyticsTracker,
 ) : ViewModel() {
+
+    init {
+        analytics.track(AnalyticsEvent.ScreenView("taste_profile"))
+    }
 
     val state: StateFlow<TasteProfileUiState> = combine(
         profileRepository.getProfile()
@@ -47,6 +54,7 @@ class TasteProfileViewModel @Inject constructor(
     }
         .catch { e ->
             logger.e(TAG, "combine pipeline threw", e)
+            analytics.track(AnalyticsEvent.ErrorOccurred(e.javaClass.simpleName, "taste_profile"))
             emit(
                 TasteProfileUiState(
                     error = UiError(

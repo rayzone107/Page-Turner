@@ -2,6 +2,8 @@ package com.pageturner.feature.readinglist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pageturner.core.analytics.AnalyticsEvent
+import com.pageturner.core.analytics.AnalyticsTracker
 import com.pageturner.core.domain.repository.SwipeRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -16,7 +18,12 @@ import javax.inject.Inject
 @HiltViewModel
 class ReadingListViewModel @Inject constructor(
     private val swipeRepository: SwipeRepository,
+    private val analytics: AnalyticsTracker,
 ) : ViewModel() {
+
+    init {
+        analytics.track(AnalyticsEvent.ScreenView("reading_list"))
+    }
 
     /** Reading list is offline-first: Room is the sole source of truth, zero network calls. */
     val state: StateFlow<ReadingListUiState> = combine(

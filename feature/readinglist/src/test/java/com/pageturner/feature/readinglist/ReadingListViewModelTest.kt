@@ -1,6 +1,7 @@
 package com.pageturner.feature.readinglist
 
 import app.cash.turbine.test
+import com.pageturner.core.analytics.AnalyticsTracker
 import com.pageturner.core.domain.model.Book
 import com.pageturner.core.domain.repository.SwipeRepository
 import io.mockk.coJustRun
@@ -28,8 +29,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 @ExtendWith(MockKExtension::class)
 class ReadingListViewModelTest {
 
-    @MockK
-    private lateinit var swipeRepository: SwipeRepository
+    @MockK private lateinit var swipeRepository: SwipeRepository
+    @MockK(relaxed = true) private lateinit var analytics: AnalyticsTracker
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -55,7 +56,7 @@ class ReadingListViewModelTest {
 
         @Test
         fun `initial state has isLoading true`() {
-            val vm = ReadingListViewModel(swipeRepository)
+            val vm = ReadingListViewModel(swipeRepository, analytics)
             assertTrue(vm.state.value.isLoading)
         }
 
@@ -64,7 +65,7 @@ class ReadingListViewModelTest {
             val book = aBook("/works/OL1")
             every { swipeRepository.getLikedBooks() } returns flowOf(listOf(book))
 
-            val vm = ReadingListViewModel(swipeRepository)
+            val vm = ReadingListViewModel(swipeRepository, analytics)
             vm.state.test {
                 skipItems(1) // initial loading state
                 val state = awaitItem()
@@ -79,7 +80,7 @@ class ReadingListViewModelTest {
             val book = aBook("/works/OL2")
             every { swipeRepository.getBookmarkedBooks() } returns flowOf(listOf(book))
 
-            val vm = ReadingListViewModel(swipeRepository)
+            val vm = ReadingListViewModel(swipeRepository, analytics)
             vm.state.test {
                 skipItems(1)
                 val state = awaitItem()
@@ -94,7 +95,7 @@ class ReadingListViewModelTest {
 
         @Test
         fun `NavigateToDetail side effect is emitted with the correct bookKey`() = runTest(testDispatcher) {
-            val vm = ReadingListViewModel(swipeRepository)
+            val vm = ReadingListViewModel(swipeRepository, analytics)
             vm.sideEffects.test {
                 vm.handleIntent(ReadingListIntent.SelectBook("/works/OL99"))
                 advanceUntilIdle()
@@ -111,7 +112,7 @@ class ReadingListViewModelTest {
         @Test
         fun `repository removeBook is called with the correct bookKey`() = runTest(testDispatcher) {
             coJustRun { swipeRepository.removeBook(any()) }
-            val vm = ReadingListViewModel(swipeRepository)
+            val vm = ReadingListViewModel(swipeRepository, analytics)
             vm.handleIntent(ReadingListIntent.RemoveBook("/works/OL5"))
             advanceUntilIdle()
 

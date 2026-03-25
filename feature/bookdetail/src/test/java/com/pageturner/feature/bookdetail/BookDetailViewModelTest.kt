@@ -2,11 +2,13 @@ package com.pageturner.feature.bookdetail
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
+import com.pageturner.core.analytics.AnalyticsTracker
 import com.pageturner.core.domain.error.AppError
 import com.pageturner.core.domain.model.BookDetail
 import com.pageturner.core.domain.repository.BookRepository
 import com.pageturner.core.domain.repository.SwipeRepository
 import com.pageturner.core.domain.util.Result
+import com.pageturner.core.logging.AppLogger
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
@@ -36,6 +38,8 @@ class BookDetailViewModelTest {
 
     @MockK private lateinit var bookRepository: BookRepository
     @MockK private lateinit var swipeRepository: SwipeRepository
+    @MockK(relaxed = true) private lateinit var analytics: AnalyticsTracker
+    @MockK(relaxed = true) private lateinit var logger: AppLogger
 
     private val testDispatcher = StandardTestDispatcher()
     private val bookKey = "/works/OL123"
@@ -71,7 +75,7 @@ class BookDetailViewModelTest {
         fun `isLoading is true`() {
             coEvery { bookRepository.getBookDetail(any()) } returns Result.Success(aBookDetail())
             coEvery { swipeRepository.isBookSaved(any()) } returns false
-            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository)
+            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository, analytics, logger)
             assertTrue(vm.state.value.isLoading)
         }
     }
@@ -84,7 +88,7 @@ class BookDetailViewModelTest {
             coEvery { bookRepository.getBookDetail(bookKey) } returns Result.Success(aBookDetail())
             coEvery { swipeRepository.isBookSaved(bookKey) } returns false
 
-            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository)
+            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository, analytics, logger)
             advanceUntilIdle()
 
             assertFalse(vm.state.value.isLoading)
@@ -95,7 +99,7 @@ class BookDetailViewModelTest {
             coEvery { bookRepository.getBookDetail(bookKey) } returns Result.Success(aBookDetail())
             coEvery { swipeRepository.isBookSaved(bookKey) } returns false
 
-            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository)
+            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository, analytics, logger)
             advanceUntilIdle()
 
             assertEquals("Great Expectations", vm.state.value.book?.title)
@@ -111,7 +115,7 @@ class BookDetailViewModelTest {
                 Result.Failure(AppError.NetworkError(500))
             coEvery { swipeRepository.isBookSaved(bookKey) } returns false
 
-            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository)
+            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository, analytics, logger)
             advanceUntilIdle()
 
             assertFalse(vm.state.value.isLoading)
@@ -123,7 +127,7 @@ class BookDetailViewModelTest {
                 Result.Failure(AppError.NetworkError(500))
             coEvery { swipeRepository.isBookSaved(bookKey) } returns false
 
-            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository)
+            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository, analytics, logger)
             advanceUntilIdle()
 
             assertNotNull(vm.state.value.error)
@@ -139,7 +143,7 @@ class BookDetailViewModelTest {
             coEvery { bookRepository.getBookDetail(bookKey) } returns Result.Success(aBookDetail())
             coEvery { swipeRepository.isBookSaved(bookKey) } returns true
 
-            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository)
+            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository, analytics, logger)
             advanceUntilIdle()
 
             assertTrue(vm.state.value.isSaved)
@@ -155,7 +159,7 @@ class BookDetailViewModelTest {
             coEvery { swipeRepository.isBookSaved(bookKey) } returns true
             coJustRun { swipeRepository.removeBook(any()) }
 
-            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository)
+            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository, analytics, logger)
             advanceUntilIdle()
             vm.handleIntent(BookDetailIntent.RemoveFromList)
             advanceUntilIdle()
@@ -169,7 +173,7 @@ class BookDetailViewModelTest {
             coEvery { swipeRepository.isBookSaved(bookKey) } returns true
             coJustRun { swipeRepository.removeBook(any()) }
 
-            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository)
+            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository, analytics, logger)
             advanceUntilIdle()
             vm.handleIntent(BookDetailIntent.RemoveFromList)
             advanceUntilIdle()
@@ -186,7 +190,7 @@ class BookDetailViewModelTest {
             coEvery { bookRepository.getBookDetail(bookKey) } returns Result.Success(aBookDetail())
             coEvery { swipeRepository.isBookSaved(bookKey) } returns false
 
-            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository)
+            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository, analytics, logger)
             advanceUntilIdle()
 
             vm.sideEffects.test {
@@ -207,7 +211,7 @@ class BookDetailViewModelTest {
             coEvery { bookRepository.getBookDetail(bookKey) } returns Result.Success(aBookDetail())
             coEvery { swipeRepository.isBookSaved(bookKey) } returns false
 
-            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository)
+            val vm = BookDetailViewModel(savedStateHandle, bookRepository, swipeRepository, analytics, logger)
             advanceUntilIdle()
 
             vm.sideEffects.test {

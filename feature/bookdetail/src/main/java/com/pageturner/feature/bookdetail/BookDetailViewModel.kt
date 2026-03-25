@@ -3,10 +3,13 @@ package com.pageturner.feature.bookdetail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pageturner.core.analytics.AnalyticsEvent
+import com.pageturner.core.analytics.AnalyticsTracker
 import com.pageturner.core.domain.error.AppError
 import com.pageturner.core.domain.repository.BookRepository
 import com.pageturner.core.domain.repository.SwipeRepository
 import com.pageturner.core.domain.util.Result
+import com.pageturner.core.logging.AppLogger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +25,8 @@ class BookDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val bookRepository: BookRepository,
     private val swipeRepository: SwipeRepository,
+    private val analytics: AnalyticsTracker,
+    private val logger: AppLogger,
 ) : ViewModel() {
 
     private val bookKey: String = checkNotNull(savedStateHandle["bookKey"])
@@ -32,7 +37,10 @@ class BookDetailViewModel @Inject constructor(
     private val _sideEffects = Channel<BookDetailSideEffect>(Channel.BUFFERED)
     val sideEffects = _sideEffects.receiveAsFlow()
 
+    private companion object { const val TAG = "BookDetailVM" }
+
     init {
+        analytics.track(AnalyticsEvent.ScreenView("book_detail"))
         viewModelScope.launch { loadBook() }
         viewModelScope.launch { observeSavedStatus() }
     }
@@ -45,6 +53,8 @@ class BookDetailViewModel @Inject constructor(
             }
             is Result.Failure -> {
                 val isOffline = result.error is AppError.NoInternetError
+                logger.e(TAG, "Failed to load book detail for $bookKey: ${result.error}")
+                analytics.track(AnalyticsEvent.ErrorOccurred(result.error.javaClass.simpleName, "book_detail"))
                 _state.update {
                     it.copy(
                         isLoading = false,

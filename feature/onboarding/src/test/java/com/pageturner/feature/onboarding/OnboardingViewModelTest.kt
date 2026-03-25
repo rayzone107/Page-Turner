@@ -1,6 +1,7 @@
 package com.pageturner.feature.onboarding
 
 import app.cash.turbine.test
+import com.pageturner.core.analytics.AnalyticsTracker
 import com.pageturner.core.domain.model.Genre
 import com.pageturner.core.domain.model.ReadingLength
 import com.pageturner.core.domain.repository.ProfileRepository
@@ -27,8 +28,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 @ExtendWith(MockKExtension::class)
 class OnboardingViewModelTest {
 
-    @MockK
-    private lateinit var profileRepository: ProfileRepository
+    @MockK private lateinit var profileRepository: ProfileRepository
+    @MockK(relaxed = true) private lateinit var analytics: AnalyticsTracker
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var viewModel: OnboardingViewModel
@@ -37,7 +38,7 @@ class OnboardingViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         coJustRun { profileRepository.saveOnboardingPreferences(any()) }
-        viewModel = OnboardingViewModel(profileRepository)
+        viewModel = OnboardingViewModel(profileRepository, analytics)
     }
 
     @AfterEach

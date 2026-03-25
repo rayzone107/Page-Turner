@@ -2,6 +2,8 @@ package com.pageturner.feature.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pageturner.core.analytics.AnalyticsEvent
+import com.pageturner.core.analytics.AnalyticsTracker
 import com.pageturner.core.domain.model.Genre
 import com.pageturner.core.domain.model.OnboardingPreferences
 import com.pageturner.core.domain.model.ReadingLength
@@ -18,8 +20,13 @@ import javax.inject.Inject
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
-    private val profileRepository: ProfileRepository
+    private val profileRepository: ProfileRepository,
+    private val analytics: AnalyticsTracker,
 ) : ViewModel() {
+
+    init {
+        analytics.track(AnalyticsEvent.ScreenView("onboarding"))
+    }
 
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
