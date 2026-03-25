@@ -7,12 +7,14 @@ import com.pageturner.core.domain.model.OnboardingPreferences
 import com.pageturner.core.domain.model.ReadingLength
 import com.pageturner.core.domain.model.SwipeDirection
 import com.pageturner.core.domain.model.TasteProfile
+import com.pageturner.core.analytics.AnalyticsTracker
 import com.pageturner.core.domain.repository.BookRepository
 import com.pageturner.core.domain.repository.ProfileRepository
 import com.pageturner.core.domain.repository.SwipeRepository
 import com.pageturner.core.domain.service.AiResult
 import com.pageturner.core.domain.service.AiService
 import com.pageturner.core.domain.util.Result
+import com.pageturner.core.logging.AppLogger
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
@@ -47,6 +49,8 @@ class SwipeDeckViewModelTest {
     @MockK private lateinit var swipeRepository: SwipeRepository
     @MockK private lateinit var profileRepository: ProfileRepository
     @MockK private lateinit var aiService: AiService
+    @MockK(relaxed = true) private lateinit var analytics: AnalyticsTracker
+    @MockK(relaxed = true) private lateinit var logger: AppLogger
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -89,7 +93,7 @@ class SwipeDeckViewModelTest {
         coEvery { aiService.summarizeProfile(any(), any()) } returns AiResult.Failed
         every { aiService.observeQuotaExceeded() } returns flowOf(false)
 
-        return SwipeDeckViewModel(bookRepository, swipeRepository, profileRepository, aiService)
+        return SwipeDeckViewModel(bookRepository, swipeRepository, profileRepository, aiService, analytics, logger)
     }
 
     @BeforeEach
@@ -108,7 +112,7 @@ class SwipeDeckViewModelTest {
             coEvery { profileRepository.getOnboardingPreferences() } returns null
             every { swipeRepository.getSwipeCount() } returns swipeCountFlow
 
-            val vm = SwipeDeckViewModel(bookRepository, swipeRepository, profileRepository, aiService)
+            val vm = SwipeDeckViewModel(bookRepository, swipeRepository, profileRepository, aiService, analytics, logger)
             advanceUntilIdle()
 
             val error = vm.state.value.error
@@ -121,7 +125,7 @@ class SwipeDeckViewModelTest {
             coEvery { profileRepository.getOnboardingPreferences() } returns null
             every { swipeRepository.getSwipeCount() } returns swipeCountFlow
 
-            val vm = SwipeDeckViewModel(bookRepository, swipeRepository, profileRepository, aiService)
+            val vm = SwipeDeckViewModel(bookRepository, swipeRepository, profileRepository, aiService, analytics, logger)
             advanceUntilIdle()
 
             assertFalse(vm.state.value.isLoading)

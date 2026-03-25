@@ -2,6 +2,7 @@ package com.pageturner.core.ai.usecase
 
 import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Genre
+import com.pageturner.core.logging.AppLogger
 import com.pageturner.core.domain.model.SwipeDirection
 import com.pageturner.core.domain.model.SwipeEvent
 import com.pageturner.core.domain.service.AiResult
@@ -24,6 +25,7 @@ class SummarizeProfileUseCaseTest {
 
     @MockK private lateinit var anthropicApiService: AnthropicApiService
     @MockK private lateinit var rateLimiter: AiRateLimiter
+    @MockK(relaxed = true) private lateinit var logger: AppLogger
 
     // Moshi.Builder().build() is sufficient — @JsonClass(generateAdapter = true) causes
     // Moshi to auto-discover the KSP-generated adapter by class name convention
@@ -57,7 +59,7 @@ class SummarizeProfileUseCaseTest {
     @BeforeEach
     fun setUp() {
         coEvery { rateLimiter.checkAndRecord() } returns true
-        useCase = SummarizeProfileUseCase(anthropicApiService, moshi, rateLimiter)
+        useCase = SummarizeProfileUseCase(anthropicApiService, moshi, rateLimiter, logger)
     }
 
     @Nested

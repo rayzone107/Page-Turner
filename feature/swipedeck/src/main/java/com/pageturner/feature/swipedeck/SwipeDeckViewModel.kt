@@ -1,8 +1,10 @@
 package com.pageturner.feature.swipedeck
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pageturner.core.analytics.AnalyticsEvent
+import com.pageturner.core.analytics.AnalyticsTracker
+import com.pageturner.core.domain.error.AppError
 import com.pageturner.core.domain.error.UiError
 import com.pageturner.core.domain.model.Book
 import com.pageturner.core.domain.model.Genre
@@ -12,10 +14,10 @@ import com.pageturner.core.domain.model.TasteProfile
 import com.pageturner.core.domain.repository.BookRepository
 import com.pageturner.core.domain.repository.ProfileRepository
 import com.pageturner.core.domain.repository.SwipeRepository
-import com.pageturner.core.domain.service.AiService
-import com.pageturner.core.domain.error.AppError
 import com.pageturner.core.domain.service.AiResult
+import com.pageturner.core.domain.service.AiService
 import com.pageturner.core.domain.util.Result
+import com.pageturner.core.logging.AppLogger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -36,6 +38,8 @@ class SwipeDeckViewModel @Inject constructor(
     private val swipeRepository: SwipeRepository,
     private val profileRepository: ProfileRepository,
     private val aiService: AiService,
+    private val analytics: AnalyticsTracker,
+    private val logger: AppLogger,
 ) : ViewModel() {
 
     companion object {
@@ -145,7 +149,7 @@ class SwipeDeckViewModel @Inject constructor(
                 books, wildcards, profile, profileSummary, profileVersion
             )
 
-            Log.d(TAG, "First build: ${result.size} cards, " +
+            logger.d(TAG, "First build: ${result.size} cards, " +
                     "${result.count { it.isWildcard }} wildcards, " +
                     "pool=${wildcards.size}")
 
@@ -235,7 +239,7 @@ class SwipeDeckViewModel @Inject constructor(
             i++
         }
 
-        Log.d(TAG, "Injected wildcards: ${result.count { it.isWildcard }} wildcards in ${result.size} cards")
+        logger.d(TAG, "Injected wildcards: ${result.count { it.isWildcard }} wildcards in ${result.size} cards")
         return result
     }
 
@@ -300,17 +304,19 @@ class SwipeDeckViewModel @Inject constructor(
                 return@launch
             }
             val book = domainBookCache[card.bookKey] ?: return@launch
+            val startMs = System.currentTimeMillis()
             when (val result = aiService.generateBrief(book, profileSummary)) {
                 is AiResult.Success -> {
+                    analytics.track(AnalyticsEvent.AiBriefGenerated(card.bookKey, System.currentTimeMillis() - startMs))
                     swipeRepository.cacheAiBrief(card.bookKey, profileVersion, result.data)
                     updateCardBrief(card.bookKey, result.data, quotaExceeded = false)
                 }
                 is AiResult.RateLimited -> {
-                    // Quota exceeded — clear shimmer and show quota error on card.
+                    analytics.track(AnalyticsEvent.AiJobFailed("generate_brief", "rate_limited"))
                     updateCardBrief(card.bookKey, "", quotaExceeded = true)
                 }
                 is AiResult.Failed -> {
-                    // API failed — set empty string so the shimmer clears silently.
+                    analytics.track(AnalyticsEvent.AiJobFailed("generate_brief", "failed"))
                     updateCardBrief(card.bookKey, "", quotaExceeded = false)
                 }
             }
@@ -366,9 +372,14 @@ class SwipeDeckViewModel @Inject constructor(
             val history = swipeRepository.getSwipeHistory().first()
             val prefs = profileRepository.getOnboardingPreferences() ?: return@launch
             when (val result = aiService.summarizeProfile(history, prefs.selectedGenres)) {
-                is AiResult.Success -> profileRepository.saveProfile(result.data)
-                is AiResult.RateLimited -> { /* quota exceeded — keep existing profile, quota state updated in rateLimiter */ }
-                is AiResult.Failed -> { /* API error — keep existing profile */ }
+                is AiResult.Success -> {
+                    profileRepository.saveProfile(result.data)
+                    analytics.track(AnalyticsEvent.ProfileUpdated(history.size, result.data.profileVersion))
+                }
+                is AiResult.RateLimited ->
+                    analytics.track(AnalyticsEvent.AiJobFailed("summarize_profile", "rate_limited"))
+                is AiResult.Failed ->
+                    analytics.track(AnalyticsEvent.AiJobFailed("summarize_profile", "failed"))
             }
         }
     }
@@ -412,26 +423,30 @@ class SwipeDeckViewModel @Inject constructor(
             )
             seenBookKeys.add(bookKey)
 
+            analytics.track(AnalyticsEvent.BookSwiped(bookKey, direction.name.lowercase(), card.isWildcard))
+
             if (direction == SwipeDirection.RIGHT || direction == SwipeDirection.BOOKMARK) {
+                val isBookmarked = direction == SwipeDirection.BOOKMARK
                 swipeRepository.saveBook(
                     bookKey        = bookKey,
                     aiBrief        = card.aiBrief,
                     wildcardReason = card.wildcardReason,
                     isWildcard     = card.isWildcard,
-                    isBookmarked   = direction == SwipeDirection.BOOKMARK,
+                    isBookmarked   = isBookmarked,
                 )
+                analytics.track(AnalyticsEvent.BookSaved(bookKey, isBookmarked, card.isWildcard))
+                if (card.isWildcard) analytics.track(AnalyticsEvent.WildcardAccepted(bookKey))
                 // Prefetch the work description so the detail page works offline.
-                // Launched in a separate coroutine so it never blocks the swipe animation.
                 viewModelScope.launch { bookRepository.prefetchBookDetail(bookKey) }
             }
 
             val newIdx = s.currentCardIndex + 1
             val nextCard = s.cards.getOrNull(newIdx)
 
-            // Diagnostic: log when a wildcard reaches the top of the stack.
             if (nextCard != null) {
-                Log.d(TAG, "Card #$newIdx → ${nextCard.title} " +
+                logger.d(TAG, "Card #$newIdx → ${nextCard.title} " +
                         "(wildcard=${nextCard.isWildcard}, key=${nextCard.bookKey})")
+                if (nextCard.isWildcard) analytics.track(AnalyticsEvent.WildcardShown(nextCard.bookKey))
             }
 
             _state.update {

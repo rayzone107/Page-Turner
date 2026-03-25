@@ -31,6 +31,7 @@ kotlin {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:network"))
+    implementation(project(":core:logging"))
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)

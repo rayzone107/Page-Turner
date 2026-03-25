@@ -5,13 +5,13 @@ import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Book
 import com.pageturner.core.domain.model.TasteProfile
 import com.pageturner.core.domain.model.WildcardResult
+import com.pageturner.core.logging.AppLogger
 import com.pageturner.core.network.api.AnthropicApiService
 import com.pageturner.core.network.dto.anthropic.AnthropicMessageDto
 import com.pageturner.core.network.dto.anthropic.AnthropicRequestDto
 import com.squareup.moshi.Moshi
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
-import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -25,6 +25,7 @@ internal class PickWildcardUseCase @Inject constructor(
     private val anthropicApiService: AnthropicApiService,
     private val moshi: Moshi,
     private val rateLimiter: AiRateLimiter,
+    private val logger: AppLogger,
 ) {
     suspend operator fun invoke(
         profile: TasteProfile,
@@ -39,10 +40,10 @@ internal class PickWildcardUseCase @Inject constructor(
             val text = response.firstTextContent() ?: return randomFallback(candidates)
             parsePickResult(text, candidates) ?: randomFallback(candidates)
         } catch (e: TimeoutCancellationException) {
-            Timber.w("PickWildcardUseCase timed out, using random fallback")
+            logger.w(TAG, "PickWildcardUseCase timed out, using random fallback")
             randomFallback(candidates)
         } catch (e: Exception) {
-            Timber.e(e, "PickWildcardUseCase failed, using random fallback")
+            logger.e(TAG, "PickWildcardUseCase failed, using random fallback", e)
             randomFallback(candidates)
         }
     }
@@ -88,7 +89,7 @@ internal class PickWildcardUseCase @Inject constructor(
             val book    = candidates.getOrElse(dto.selectedIndex) { candidates.random() }
             WildcardResult(book = book, reason = dto.reason)
         } catch (e: Exception) {
-            Timber.e(e, "PickWildcardUseCase: failed to parse wildcard JSON")
+            logger.e(TAG, "PickWildcardUseCase: failed to parse wildcard JSON", e)
             null
         }
     }
@@ -97,6 +98,7 @@ internal class PickWildcardUseCase @Inject constructor(
         WildcardResult(book = candidates.random(), reason = null)
 
     private companion object {
+        const val TAG           = "PickWildcardUseCase"
         const val CLAUDE_MODEL  = "claude-sonnet-4-6"
         const val AI_TIMEOUT_MS = 30_000L
     }

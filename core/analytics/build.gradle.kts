@@ -26,6 +26,8 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":core:logging"))
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
 }

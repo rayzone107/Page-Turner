@@ -9,9 +9,12 @@ import timber.log.Timber
 class PageTurnerApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        Timber.plant(Timber.DebugTree())
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
+        // In release builds: plant a crash-reporting tree here (e.g. FirebaseCrashlytics).
         if (BuildConfig.ANTHROPIC_API_KEY.isBlank()) {
-            Timber.e("ANTHROPIC_API_KEY is not set in local.properties — all AI features will fail")
+            Timber.tag("App").e("ANTHROPIC_API_KEY is not set in local.properties — all AI features will fail")
         }
     }
 }

@@ -1,20 +1,18 @@
 package com.pageturner.feature.tasteprofile
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pageturner.core.domain.error.UiError
 import com.pageturner.core.domain.repository.ProfileRepository
 import com.pageturner.core.domain.repository.SwipeRepository
 import com.pageturner.core.domain.service.AiService
+import com.pageturner.core.logging.AppLogger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -24,24 +22,18 @@ class TasteProfileViewModel @Inject constructor(
     profileRepository: ProfileRepository,
     swipeRepository: SwipeRepository,
     aiService: AiService,
+    private val logger: AppLogger,
 ) : ViewModel() {
 
     val state: StateFlow<TasteProfileUiState> = combine(
         profileRepository.getProfile()
-            .onStart { Log.d("TasteProfileVM", "getProfile flow started") }
-            .onEach   { Log.d("TasteProfileVM", "getProfile emitted: $it") }
-            .catch    { Log.e("TasteProfileVM", "getProfile threw", it); throw it },
+            .catch { logger.e(TAG, "getProfile threw", it); throw it },
         swipeRepository.getSwipeCount()
-            .onStart { Log.d("TasteProfileVM", "getSwipeCount flow started") }
-            .onEach   { Log.d("TasteProfileVM", "getSwipeCount emitted: $it") }
-            .catch    { Log.e("TasteProfileVM", "getSwipeCount threw", it); throw it },
+            .catch { logger.e(TAG, "getSwipeCount threw", it); throw it },
         swipeRepository.getSavedBooks()
-            .onStart { Log.d("TasteProfileVM", "getSavedBooks flow started") }
-            .onEach   { Log.d("TasteProfileVM", "getSavedBooks emitted: ${it.size} books") }
-            .catch    { Log.e("TasteProfileVM", "getSavedBooks threw", it); throw it },
+            .catch { logger.e(TAG, "getSavedBooks threw", it); throw it },
         aiService.observeQuotaExceeded(),
     ) { profile, totalSwiped, savedBooks, isQuotaExceeded ->
-        Log.d("TasteProfileVM", "combine firing: profile=${profile != null}, totalSwiped=$totalSwiped, saved=${savedBooks.size}, quotaExceeded=$isQuotaExceeded")
         val stats = SwipeStats(
             totalSwiped = totalSwiped,
             totalSaved = savedBooks.size,
@@ -54,7 +46,7 @@ class TasteProfileViewModel @Inject constructor(
         )
     }
         .catch { e ->
-            Log.e("TasteProfileVM", "combine pipeline threw", e)
+            logger.e(TAG, "combine pipeline threw", e)
             emit(
                 TasteProfileUiState(
                     error = UiError(
@@ -70,6 +62,8 @@ class TasteProfileViewModel @Inject constructor(
             started = SharingStarted.Eagerly,
             initialValue = TasteProfileUiState(isLoading = true),
         )
+
+    private companion object { const val TAG = "TasteProfileVM" }
 
     private val _sideEffects = Channel<TasteProfileSideEffect>(Channel.BUFFERED)
     val sideEffects = _sideEffects.receiveAsFlow()

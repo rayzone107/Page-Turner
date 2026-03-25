@@ -3,6 +3,7 @@ package com.pageturner.core.ai.usecase
 import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Book
 import com.pageturner.core.domain.service.AiResult
+import com.pageturner.core.logging.AppLogger
 import com.pageturner.core.network.api.AnthropicApiService
 import com.pageturner.core.network.dto.anthropic.AnthropicContentBlockDto
 import com.pageturner.core.network.dto.anthropic.AnthropicResponseDto
@@ -22,6 +23,7 @@ class GenerateBriefUseCaseTest {
 
     @MockK private lateinit var anthropicApiService: AnthropicApiService
     @MockK private lateinit var rateLimiter: AiRateLimiter
+    @MockK(relaxed = true) private lateinit var logger: AppLogger
 
     private lateinit var useCase: GenerateBriefUseCase
 
@@ -41,7 +43,7 @@ class GenerateBriefUseCaseTest {
     @BeforeEach
     fun setUp() {
         coEvery { rateLimiter.checkAndRecord() } returns true
-        useCase = GenerateBriefUseCase(anthropicApiService, rateLimiter)
+        useCase = GenerateBriefUseCase(anthropicApiService, rateLimiter, logger)
     }
 
     @Nested

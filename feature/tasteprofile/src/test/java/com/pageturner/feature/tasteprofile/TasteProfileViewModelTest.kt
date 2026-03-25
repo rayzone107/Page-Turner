@@ -5,6 +5,7 @@ import com.pageturner.core.domain.model.TasteProfile
 import com.pageturner.core.domain.repository.ProfileRepository
 import com.pageturner.core.domain.repository.SwipeRepository
 import com.pageturner.core.domain.service.AiService
+import com.pageturner.core.logging.AppLogger
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
@@ -34,6 +35,7 @@ class TasteProfileViewModelTest {
     @MockK private lateinit var profileRepository: ProfileRepository
     @MockK private lateinit var swipeRepository: SwipeRepository
     @MockK private lateinit var aiService: AiService
+    @MockK(relaxed = true) private lateinit var logger: AppLogger
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -74,7 +76,7 @@ class TasteProfileViewModelTest {
         @Test
         fun `state shows the AI summary text`() = runTest(testDispatcher) {
             profileFlow.value = aProfile(summary = "You love dark fiction.")
-            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService)
+            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService, logger)
             advanceUntilIdle()
 
             assertEquals("You love dark fiction.", vm.state.value.profile?.aiSummary)
@@ -86,7 +88,7 @@ class TasteProfileViewModelTest {
                 liked = listOf("literary fiction"),
                 avoided = listOf("romance")
             )
-            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService)
+            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService, logger)
             advanceUntilIdle()
 
             val profile = vm.state.value.profile
@@ -99,7 +101,7 @@ class TasteProfileViewModelTest {
         fun `swipe stats are populated from the repository`() = runTest(testDispatcher) {
             profileFlow.value = aProfile()
             swipeCountFlow.value = 25
-            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService)
+            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService, logger)
             advanceUntilIdle()
 
             assertEquals(25, vm.state.value.swipeStats.totalSwiped)
@@ -112,7 +114,7 @@ class TasteProfileViewModelTest {
         @Test
         fun `profile in state is null`() = runTest(testDispatcher) {
             profileFlow.value = null
-            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService)
+            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService, logger)
             advanceUntilIdle()
 
             assertNull(vm.state.value.profile)
@@ -125,7 +127,7 @@ class TasteProfileViewModelTest {
         @Test
         fun `isAiQuotaExceeded is true in state`() = runTest(testDispatcher) {
             every { aiService.observeQuotaExceeded() } returns flowOf(true)
-            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService)
+            val vm = TasteProfileViewModel(profileRepository, swipeRepository, aiService, logger)
             advanceUntilIdle()
 
             assertTrue(vm.state.value.isAiQuotaExceeded)

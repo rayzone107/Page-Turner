@@ -7,13 +7,13 @@ import com.pageturner.core.domain.model.SwipeDirection
 import com.pageturner.core.domain.model.SwipeEvent
 import com.pageturner.core.domain.model.TasteProfile
 import com.pageturner.core.domain.service.AiResult
+import com.pageturner.core.logging.AppLogger
 import com.pageturner.core.network.api.AnthropicApiService
 import com.pageturner.core.network.dto.anthropic.AnthropicMessageDto
 import com.pageturner.core.network.dto.anthropic.AnthropicRequestDto
 import com.squareup.moshi.Moshi
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
-import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -29,6 +29,7 @@ internal class SummarizeProfileUseCase @Inject constructor(
     private val anthropicApiService: AnthropicApiService,
     private val moshi: Moshi,
     private val rateLimiter: AiRateLimiter,
+    private val logger: AppLogger,
 ) {
     suspend operator fun invoke(
         swipeEvents: List<SwipeEvent>,
@@ -44,10 +45,10 @@ internal class SummarizeProfileUseCase @Inject constructor(
             val profile = parseProfile(text, swipeEvents.size)
             if (profile != null) AiResult.Success(profile) else AiResult.Failed
         } catch (e: TimeoutCancellationException) {
-            Timber.w("SummarizeProfileUseCase timed out (${swipeEvents.size} swipes)")
+            logger.w(TAG, "SummarizeProfileUseCase timed out (${swipeEvents.size} swipes)")
             AiResult.Failed
         } catch (e: Exception) {
-            Timber.e(e, "SummarizeProfileUseCase failed")
+            logger.e(TAG, "SummarizeProfileUseCase failed", e)
             AiResult.Failed
         }
     }
@@ -109,12 +110,13 @@ internal class SummarizeProfileUseCase @Inject constructor(
                 updatedAt             = System.currentTimeMillis()
             )
         } catch (e: Exception) {
-            Timber.e(e, "SummarizeProfileUseCase: failed to parse profile JSON")
+            logger.e(TAG, "SummarizeProfileUseCase: failed to parse profile JSON", e)
             null
         }
     }
 
     private companion object {
+        const val TAG           = "SummarizeProfileUseCase"
         const val CLAUDE_MODEL  = "claude-sonnet-4-6"
         const val AI_TIMEOUT_MS = 45_000L
     }

@@ -3,12 +3,12 @@ package com.pageturner.core.ai.usecase
 import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Book
 import com.pageturner.core.domain.service.AiResult
+import com.pageturner.core.logging.AppLogger
 import com.pageturner.core.network.api.AnthropicApiService
 import com.pageturner.core.network.dto.anthropic.AnthropicMessageDto
 import com.pageturner.core.network.dto.anthropic.AnthropicRequestDto
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
-import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -22,6 +22,7 @@ import javax.inject.Inject
 internal class GenerateBriefUseCase @Inject constructor(
     private val anthropicApiService: AnthropicApiService,
     private val rateLimiter: AiRateLimiter,
+    private val logger: AppLogger,
 ) {
     suspend operator fun invoke(book: Book, profileSummary: String?): AiResult<String> {
         if (!rateLimiter.checkAndRecord()) return AiResult.RateLimited
@@ -32,10 +33,10 @@ internal class GenerateBriefUseCase @Inject constructor(
             val text = response.firstTextContent()?.trim().takeIf { !it.isNullOrBlank() }
             if (text != null) AiResult.Success(text) else AiResult.Failed
         } catch (e: TimeoutCancellationException) {
-            Timber.w("GenerateBriefUseCase timed out for book=${book.key}")
+            logger.w(TAG, "GenerateBriefUseCase timed out for book=${book.key}")
             AiResult.Failed
         } catch (e: Exception) {
-            Timber.e(e, "GenerateBriefUseCase failed for book=${book.key}")
+            logger.e(TAG, "GenerateBriefUseCase failed for book=${book.key}", e)
             AiResult.Failed
         }
     }
@@ -68,6 +69,7 @@ internal class GenerateBriefUseCase @Inject constructor(
     }
 
     private companion object {
+        const val TAG             = "GenerateBriefUseCase"
         const val CLAUDE_MODEL    = "claude-haiku-4-5-20251001"
         const val AI_TIMEOUT_MS   = 30_000L
     }

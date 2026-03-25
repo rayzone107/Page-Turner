@@ -2,6 +2,7 @@ package com.pageturner.core.ai.usecase
 
 import com.pageturner.core.ai.ratelimit.AiRateLimiter
 import com.pageturner.core.domain.model.Book
+import com.pageturner.core.logging.AppLogger
 import com.pageturner.core.domain.model.TasteProfile
 import com.pageturner.core.network.api.AnthropicApiService
 import com.pageturner.core.network.dto.anthropic.AnthropicContentBlockDto
@@ -24,6 +25,7 @@ class PickWildcardUseCaseTest {
 
     @MockK private lateinit var anthropicApiService: AnthropicApiService
     @MockK private lateinit var rateLimiter: AiRateLimiter
+    @MockK(relaxed = true) private lateinit var logger: AppLogger
 
     // Moshi.Builder().build() auto-discovers the KSP-generated WildcardPickDtoJsonAdapter
     // via class name convention. KotlinJsonAdapterFactory explicitly skips codegen classes.
@@ -54,7 +56,7 @@ class PickWildcardUseCaseTest {
     @BeforeEach
     fun setUp() {
         coEvery { rateLimiter.checkAndRecord() } returns true
-        useCase = PickWildcardUseCase(anthropicApiService, moshi, rateLimiter)
+        useCase = PickWildcardUseCase(anthropicApiService, moshi, rateLimiter, logger)
     }
 
     @Nested
