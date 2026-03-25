@@ -25,7 +25,6 @@ class ReadingListViewModel @Inject constructor(
         analytics.track(AnalyticsEvent.ScreenView("reading_list"))
     }
 
-    /** Reading list is offline-first: Room is the sole source of truth, zero network calls. */
     val state: StateFlow<ReadingListUiState> = combine(
         swipeRepository.getLikedBooks(),
         swipeRepository.getBookmarkedBooks(),

@@ -199,9 +199,7 @@ fun SwipeDeckScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Card stack
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Card stack ---
 
 @Composable
 private fun SwipeCardStack(
@@ -262,11 +260,8 @@ private fun SwipeCardStack(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Unified card — handles both top (interactive) and background (preview) states.
-// Using one composable type across all stack depths lets Compose reuse it via
-// key(bookKey) when a card rises from depth-1 to depth-0, eliminating the flash.
-// ─────────────────────────────────────────────────────────────────────────────
+// Single composable for all stack depths — Compose reuses it via key(bookKey)
+// when a card rises from depth-1 to depth-0, eliminating the flash.
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -374,7 +369,7 @@ private fun StackedCard(
         elevation = CardDefaults.cardElevation(defaultElevation = if (isTop) 8.dp else 2.dp),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // ── Full card content shown at every stack depth ────────────────
+            // Full card content shown at every stack depth
             // Rendering the info panel on background cards means there is zero
             // layout jump when a card rises from depth-1 to depth-0 (top).
             // Vertical scrolling and interactive buttons are top-card-only.
@@ -463,7 +458,7 @@ private fun StackedCard(
                 }
             }
 
-            // ── Swipe direction overlays (top card only) ────────────────────
+            // Swipe direction overlays (top card only)
             if (isTop) {
                 if (normalizedX > 0.05f) {
                     SwipeOverlay(
@@ -512,9 +507,7 @@ private fun SwipeOverlay(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Footer
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Footer ---
 
 @Composable
 private fun SwipeCountFooter(

@@ -52,33 +52,16 @@ class SwipeDeckViewModel @Inject constructor(
     private val _sideEffects = Channel<SwipeDeckSideEffect>(Channel.BUFFERED)
     val sideEffects = _sideEffects.receiveAsFlow()
 
-    /** Running brief-generation jobs keyed by bookKey — prevents duplicates. */
     private val briefJobs = mutableMapOf<String, Job>()
-
-    /** Off-genre books used to fill wildcard slots (every 4th card). */
     private val wildcardPool = MutableStateFlow<List<Book>>(emptyList())
-
-    /**
-     * Raw domain models keyed by bookKey.
-     * Needed for AI calls — avoids round-tripping through the UI model.
-     */
     private val domainBookCache = mutableMapOf<String, Book>()
-
-    /** Genres the user selected during onboarding — stored for deck replenishment. */
     private var userGenreSubjects: List<String> = emptyList()
-
-    /** All book keys the user has ever swiped — prevents wildcard repeats. */
     private val seenBookKeys = mutableSetOf<String>()
 
-    /**
-     * Number of regular cards placed since the last wildcard.
-     * When this reaches [nextWildcardGap], the next card becomes a wildcard.
-     * Persisted across interleaveBooks / appendCards calls so spacing stays natural.
-     */
+    // Tracks wildcard spacing: a wildcard is inserted every 4–10 regular cards.
     private var sinceLastWildcard = 0
-    private var nextWildcardGap = (4..10).random() // first gap
+    private var nextWildcardGap = (4..10).random()
 
-    /** Guards against concurrent deck-refresh calls. */
     private var isRefreshingQueue = false
 
     init {
@@ -86,9 +69,7 @@ class SwipeDeckViewModel @Inject constructor(
         viewModelScope.launch { observeSwipeCount() }
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Initialisation
-    // ─────────────────────────────────────────────────────────────────
+    // --- Initialisation ---
 
     private suspend fun initialize() {
         val prefs = profileRepository.getOnboardingPreferences() ?: run {
@@ -130,9 +111,7 @@ class SwipeDeckViewModel @Inject constructor(
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Queue building
-    // ─────────────────────────────────────────────────────────────────
+    // --- Queue building ---
 
     private fun rebuildCards(books: List<Book>, wildcards: List<Book>, profile: TasteProfile?) {
         val currentCards = _state.value.cards
@@ -144,7 +123,7 @@ class SwipeDeckViewModel @Inject constructor(
         wildcards.forEach { domainBookCache[it.key] = it }
 
         if (currentCards.isEmpty()) {
-            // ── First build: construct the full deck from scratch ──────────
+            // First build: construct the full deck from scratch
             val result = interleaveBooks(
                 books, wildcards, profile, profileSummary, profileVersion
             )
@@ -164,7 +143,7 @@ class SwipeDeckViewModel @Inject constructor(
                 )
             }
         } else {
-            // ── Subsequent update: preserve existing card order ────────────
+            // Subsequent update: preserve existing card order
             val existingKeys = currentCards.map { it.bookKey }.toSet()
             val hasWildcardsInDeck = currentCards.any { it.isWildcard }
 
@@ -291,9 +270,7 @@ class SwipeDeckViewModel @Inject constructor(
         return result
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // AI brief generation (one job per bookKey, cached by profileVersion)
-    // ─────────────────────────────────────────────────────────────────
+    // --- AI brief generation (one job per bookKey, cached by profileVersion) ---
 
     private fun scheduleBrief(card: SwipeCardUiModel, profileSummary: String?, profileVersion: Int) {
         if (briefJobs[card.bookKey]?.isActive == true) return
@@ -335,9 +312,7 @@ class SwipeDeckViewModel @Inject constructor(
     }
 
 
-    // ─────────────────────────────────────────────────────────────────
-    // Wildcard candidate pool (off-genre books)
-    // ─────────────────────────────────────────────────────────────────
+    // --- Wildcard candidate pool (off-genre books) ---
 
     private suspend fun loadWildcardPool(offGenreSubjects: List<String>) {
         val candidates = mutableListOf<Book>()
@@ -348,9 +323,7 @@ class SwipeDeckViewModel @Inject constructor(
         wildcardPool.value = candidates.shuffled().take(20)
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Swipe count observation + profile update trigger (every 10 swipes)
-    // ─────────────────────────────────────────────────────────────────
+    // --- Swipe count observation + profile update trigger (every 10 swipes) ---
 
     private fun observeSwipeCount() {
         viewModelScope.launch {
@@ -384,9 +357,7 @@ class SwipeDeckViewModel @Inject constructor(
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Intent handling
-    // ─────────────────────────────────────────────────────────────────
+    // --- Intent handling ---
 
     fun handleIntent(intent: SwipeDeckIntent) {
         when (intent) {
@@ -463,9 +434,7 @@ class SwipeDeckViewModel @Inject constructor(
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Deck replenishment (called imperatively when deck runs low)
-    // ─────────────────────────────────────────────────────────────────
+    // --- Deck replenishment (called imperatively when deck runs low) ---
 
     private fun refreshQueueIfNeeded() {
         if (isRefreshingQueue || userGenreSubjects.isEmpty()) return
@@ -539,39 +508,23 @@ class SwipeDeckViewModel @Inject constructor(
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Local score calculation (mirrors BookMapper.calculateMatchScore but
-    // operates on domain-layer List<String> instead of a serialised JSON string,
-    // keeping the feature module free of core:data imports).
-    // ─────────────────────────────────────────────────────────────────
-    /**
-     * Computes a match score in 0.0–1.0 that reflects how well a book fits the profile.
-     *
-     * Design goals:
-     *  - New users (no profile) start around 0.20.
-     *  - As the profile matures (profileVersion increases with every 10 swipes),
-     *    regular books gradually climb toward 0.85–0.92 but never reach 1.0.
-     *  - There's always variance — two books with similar genre overlap get different scores.
-     *  - Wildcards are capped significantly lower (0.15–0.45) — that's the point.
-     */
+    // Local match score (0.0–1.0) reflecting how well a book fits the profile.
+    // Operates on domain-layer types to keep this module free of core:data imports.
     private fun computeMatchScore(
         subjects: List<String>,
         profile: TasteProfile?,
         isWildcard: Boolean = false,
     ): Float {
-        // Deterministic jitter unique to this book: 0.00 – 0.12
         val jitter = (subjects.sumOf { it.length } % 13) / 100f
 
-        // ── No profile yet → flat 0.20 with jitter ──────────────────────
         if (profile == null || (profile.likedGenres.isEmpty() && profile.avoidedGenres.isEmpty())) {
             return (0.18f + jitter).coerceIn(0.08f, 0.35f)
         }
 
-        // ── Profile maturity: 0.0 at version 0, asymptotically approaches 1.0 ──
-        // version 1 (10 swipes) → 0.33,  v3 (30) → 0.60,  v5 (50) → 0.71,  v10 (100) → 0.83
+        // Profile maturity: asymptotically approaches 1.0
+        // v1 (10 swipes) → 0.33, v3 (30) → 0.60, v5 (50) → 0.71, v10 (100) → 0.83
         val maturity = 1f - 1f / (1f + profile.profileVersion * 0.5f)
 
-        // ── Genre overlap ───────────────────────────────────────────────
         val subjectsLower = subjects.map { it.lowercase() }
         val liked   = profile.likedGenres.map  { it.lowercase() }
         val avoided = profile.avoidedGenres.map { it.lowercase() }
@@ -583,26 +536,17 @@ class SwipeDeckViewModel @Inject constructor(
             if (avoided.any { a -> s.contains(a) || a.contains(s) }) avoidedHits++
         }
 
-        // hitRatio: fraction of liked genres this book covers (0.0 – 1.0)
         val hitRatio = if (liked.isNotEmpty()) (likedHits.toFloat() / liked.size).coerceAtMost(1f) else 0f
         val avoidPenalty = if (avoided.isNotEmpty()) (avoidedHits.toFloat() / avoided.size).coerceAtMost(1f) else 0f
 
-        // ── Assemble the score ──────────────────────────────────────────
-        // Base line that rises with maturity: 0.20 → ~0.40 over time.
         val base = 0.20f + maturity * 0.20f
-        // Genre boost scales with both maturity AND how well this book matches.
-        val genreBoost = hitRatio * maturity * 0.50f   // max ≈ 0.42 at full maturity
-        // Penalty for avoided genres.
+        val genreBoost = hitRatio * maturity * 0.50f
         val penalty = avoidPenalty * 0.25f
-
         val rawScore = base + genreBoost - penalty + jitter
 
         return if (isWildcard) {
-            // Wildcards: always noticeably below the regular average.
-            // Cap at 0.45 so they clearly sit in the red–orange zone.
             rawScore.coerceIn(0.08f, 0.45f)
         } else {
-            // Regular: cap at 0.95 — never fully "perfect".
             rawScore.coerceIn(0.08f, 0.95f)
         }
     }

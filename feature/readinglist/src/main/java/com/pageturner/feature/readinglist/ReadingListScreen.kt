@@ -182,9 +182,7 @@ fun ReadingListScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tabs
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Tabs ---
 
 @Composable
 private fun ReadingListTabs(
@@ -233,9 +231,7 @@ private fun ReadingListTabs(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Per-tab empty state
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Per-tab empty state ---
 
 @Composable
 private fun TabEmptyState(
@@ -255,9 +251,7 @@ private fun TabEmptyState(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Non-lazy book grid (used inside a verticalScroll Column)
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Non-lazy book grid (used inside a verticalScroll Column) ---
 
 @Composable
 private fun BookGrid(
@@ -296,9 +290,7 @@ private fun BookGrid(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Grid cell
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Grid cell ---
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -343,9 +335,7 @@ private fun BookGridCell(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Remove confirmation sheet
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Remove confirmation sheet ---
 
 @Composable
 private fun RemoveConfirmationSheet(
@@ -399,9 +389,7 @@ private fun RemoveConfirmationSheet(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shimmer loading grid
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Shimmer loading grid ---
 
 @Composable
 private fun ShimmerGrid(modifier: Modifier = Modifier) {

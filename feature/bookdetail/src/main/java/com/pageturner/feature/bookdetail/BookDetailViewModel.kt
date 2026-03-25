@@ -67,7 +67,6 @@ class BookDetailViewModel @Inject constructor(
     }
 
     private suspend fun observeSavedStatus() {
-        // Check once on load; the reading list screen handles real-time updates.
         val saved = swipeRepository.isBookSaved(bookKey)
         _state.update { it.copy(isSaved = saved) }
     }

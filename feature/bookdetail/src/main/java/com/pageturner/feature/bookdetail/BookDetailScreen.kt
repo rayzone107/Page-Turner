@@ -120,9 +120,7 @@ fun BookDetailScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Content
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Content ---
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -138,7 +136,6 @@ private fun SharedTransitionScope.BookDetailContent(
     Column(modifier = modifier.verticalScroll(rememberScrollState())) {
         if (isOffline) OfflineBanner()
 
-        // ── Hero cover with shared element transition ──────────────────────
         Box {
             BookCoverImage(
                 coverUrl = book.coverUrl,
@@ -152,7 +149,6 @@ private fun SharedTransitionScope.BookDetailContent(
                     ),
             )
 
-            // Dark gradient scrim so title/author overlay is readable.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -190,10 +186,9 @@ private fun SharedTransitionScope.BookDetailContent(
             }
         }
 
-        // ── Body ──────────────────────────────────────────────────────────
+        // Body
         Column(modifier = Modifier.padding(PageTurnerSpacing.md)) {
 
-            // Year + page count chips
             val metaChips = listOfNotNull(
                 book.publishYear?.toString(),
                 book.pageCount?.let { "$it pages" },
@@ -207,7 +202,6 @@ private fun SharedTransitionScope.BookDetailContent(
                 Spacer(Modifier.height(PageTurnerSpacing.md))
             }
 
-            // Subject chips — horizontally scrollable so they never wrap
             if (book.subjects.isNotEmpty()) {
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -218,25 +212,21 @@ private fun SharedTransitionScope.BookDetailContent(
                 Spacer(Modifier.height(PageTurnerSpacing.md))
             }
 
-            // AI brief
             book.aiBrief?.takeIf { it.isNotBlank() }?.let { brief ->
                 AiBriefText(brief = brief, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(PageTurnerSpacing.md))
             }
 
-            // Wildcard reason
             book.wildcardReason?.let { reason ->
                 WildcardReasonBlock(reason = reason)
                 Spacer(Modifier.height(PageTurnerSpacing.md))
             }
 
-            // Description with expand/collapse
             book.description?.let { desc ->
                 ExpandableDescription(description = desc)
                 Spacer(Modifier.height(PageTurnerSpacing.md))
             }
 
-            // Open Library link
             Text(
                 text = "View on Open Library →",
                 style = PageTurnerType.Body,
@@ -245,7 +235,6 @@ private fun SharedTransitionScope.BookDetailContent(
                 modifier = Modifier.clickable(onClick = onOpenLibrary),
             )
 
-            // Remove from list button — only shown when book is in the reading list
             if (isSaved) {
                 Spacer(Modifier.height(PageTurnerSpacing.md))
                 Button(
@@ -265,9 +254,7 @@ private fun SharedTransitionScope.BookDetailContent(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Local components
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Local components ---
 
 @Composable
 private fun MetaChip(label: String, modifier: Modifier = Modifier) {

@@ -64,7 +64,6 @@ fun OnboardingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // Collect side effects
     LaunchedEffect(Unit) {
         viewModel.sideEffects.collect { effect ->
             when (effect) {
@@ -73,7 +72,6 @@ fun OnboardingScreen(
         }
     }
 
-    // Entrance animation for the wordmark
     val wordmarkAlpha = remember { Animatable(0f) }
     val wordmarkScale = remember { Animatable(0.85f) }
     LaunchedEffect(Unit) {
@@ -131,7 +129,6 @@ fun OnboardingScreen(
         ) {
             Spacer(modifier = Modifier.height(PageTurnerSpacing.xl))
 
-            // Animated wordmark
             Text(
                 text     = "PageTurner",
                 style    = PageTurnerType.AppTitle.copy(fontSize = 32.sp),
@@ -153,7 +150,7 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(PageTurnerSpacing.xl))
 
-            // ── Genre section ────────────────────────────────────────────
+            // Genre section
             SectionLabel(text = "What genres interest you?")
             Spacer(modifier = Modifier.height(PageTurnerSpacing.md))
 
@@ -174,7 +171,7 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(PageTurnerSpacing.xl))
 
-            // ── Length section ───────────────────────────────────────────
+            // Length section
             SectionLabel(text = "How long do you like your books?")
             Spacer(modifier = Modifier.height(PageTurnerSpacing.md))
 

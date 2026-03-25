@@ -3,12 +3,7 @@ package com.pageturner.core.analytics.internal
 import com.pageturner.core.logging.AppLogger
 import javax.inject.Inject
 
-/**
- * [AnalyticsAdapter] that writes events to logcat via [AppLogger].
- *
- * This is the default adapter. Replace the binding in [AnalyticsModule]
- * to route events to a real analytics SDK instead.
- */
+/** Debug [AnalyticsAdapter] that writes events to logcat via [AppLogger]. */
 internal class LogcatAnalyticsAdapter @Inject constructor(
     private val logger: AppLogger,
 ) : AnalyticsAdapter {

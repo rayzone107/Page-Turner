@@ -14,12 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/**
- * Binds [AiService] to [ClaudeAiService] and provides the Room database used by
- * [com.pageturner.core.ai.ratelimit.AiRateLimiter] for persistent quota tracking.
- *
- * Feature modules inject [AiService] — they never see [ClaudeAiService] or the Anthropic SDK.
- */
+/** Binds [AiService] to Claude and provides the rate-limit database. */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class AiModule {

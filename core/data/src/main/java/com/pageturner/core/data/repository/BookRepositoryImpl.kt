@@ -33,11 +33,9 @@ class BookRepositoryImpl @Inject constructor(
         genres: List<String>,
         seenBookKeys: Set<String>
     ): Flow<List<Book>> = flow {
-        // 1. Emit immediately from local cache
         val cached = getFilteredBooks(genres, seenBookKeys)
         emit(cached.map { it.toDomain() })
 
-        // 2. Fetch more from Open Library if stock is low (< 10 books)
         if (cached.size < 10) {
             genres.forEach { genre ->
                 safeApiCall { openLibraryApiService.searchBySubject(genre) }
@@ -47,7 +45,6 @@ class BookRepositoryImpl @Inject constructor(
                     ?.map { it.toEntity() }
                     ?.let { bookDao.upsertBooks(it) }
             }
-            // 3. Re-emit with fresh data
             val fresh = getFilteredBooks(genres, seenBookKeys)
             emit(fresh.map { it.toDomain() })
         }
@@ -84,17 +81,14 @@ class BookRepositoryImpl @Inject constructor(
     }
 
     override suspend fun cacheBook(book: Book) {
-        // No-op for simple books passed in from outside; upsert is handled during queue building
+        // No-op: upsert is handled during queue building
     }
 
     override suspend fun prefetchBookDetail(bookKey: String) {
-        // Skip if description already stored locally.
         val cached = bookDao.getBook(bookKey)
         if (cached?.description != null) return
 
         val workId = bookKey.removePrefix("/works/")
-        // safeApiCall wraps any IOException / HTTP error — result is intentionally ignored
-        // here because this is a best-effort prefetch that must not surface errors to the UI.
         safeApiCall {
             val detail = openLibraryApiService.getWorkDetail(workId)
             detail.description?.let { desc -> bookDao.updateDescription(bookKey, desc) }

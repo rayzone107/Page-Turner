@@ -9,12 +9,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/**
- * Hilt bindings for the analytics pipeline.
- *
- * To swap the analytics tool, change [bindAnalyticsAdapter] to point at a
- * new [AnalyticsAdapter] implementation — no other changes required.
- */
+/** Hilt bindings for the analytics pipeline. */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class AnalyticsModule {

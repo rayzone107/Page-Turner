@@ -3,14 +3,7 @@ package com.pageturner.core.logging
 import timber.log.Timber
 import javax.inject.Inject
 
-/**
- * [AppLogger] implementation backed by Timber.
- *
- * Timber is tree-based: it only outputs logs when a tree is planted.
- * The Application class is the single configuration point — plant
- * [Timber.DebugTree] in debug builds only, and (optionally) a
- * crash-reporting tree in release builds.
- */
+/** [AppLogger] backed by Timber. */
 internal class TimberAppLogger @Inject constructor() : AppLogger {
     override fun d(tag: String, message: String) = Timber.tag(tag).d(message)
     override fun i(tag: String, message: String) = Timber.tag(tag).i(message)

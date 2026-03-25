@@ -121,9 +121,7 @@ fun TasteProfileScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Profile content
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Profile content ---
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -148,7 +146,6 @@ private fun ProfileContent(
                     .padding(bottom = PageTurnerSpacing.sm),
             )
         }
-        // AI summary section
         SectionHeader(text = "My taste profile")
         Spacer(Modifier.height(PageTurnerSpacing.sm))
         AiBriefText(
@@ -158,7 +155,6 @@ private fun ProfileContent(
 
         Spacer(Modifier.height(PageTurnerSpacing.lg))
 
-        // What you love
         if (profile.likedGenres.isNotEmpty()) {
             SectionHeader(text = "What you love")
             Spacer(Modifier.height(PageTurnerSpacing.sm))
@@ -171,7 +167,6 @@ private fun ProfileContent(
             Spacer(Modifier.height(PageTurnerSpacing.lg))
         }
 
-        // You tend to skip
         if (profile.avoidedGenres.isNotEmpty()) {
             SectionHeader(text = "You tend to skip")
             Spacer(Modifier.height(PageTurnerSpacing.sm))
@@ -184,14 +179,12 @@ private fun ProfileContent(
             Spacer(Modifier.height(PageTurnerSpacing.lg))
         }
 
-        // Stats grid
         SectionHeader(text = "Reading stats")
         Spacer(Modifier.height(PageTurnerSpacing.sm))
         StatsGrid(stats = stats)
 
         Spacer(Modifier.height(PageTurnerSpacing.lg))
 
-        // Preferred length
         if (profile.preferredLength.isNotBlank() && profile.preferredLength != "any") {
             SectionHeader(text = "Preferred length")
             Spacer(Modifier.height(PageTurnerSpacing.xs))
@@ -203,7 +196,6 @@ private fun ProfileContent(
             Spacer(Modifier.height(PageTurnerSpacing.lg))
         }
 
-        // Footnote
         Text(
             text = "Profile last updated after swipe #${profile.lastUpdatedSwipeCount}",
             style = PageTurnerType.BodySmall,
@@ -258,9 +250,7 @@ private fun StatCard(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Quota exceeded with no existing profile (>= 10 swipes, quota hit before first build)
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Quota exceeded with no existing profile (>= 10 swipes, quota hit before first build) ---
 
 @Composable
 private fun QuotaExceededNoProfileState(modifier: Modifier = Modifier) {
@@ -285,9 +275,7 @@ private fun QuotaExceededNoProfileState(modifier: Modifier = Modifier) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Profile building state (>= 10 swipes but AI hasn't returned a profile yet)
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Profile building state (>= 10 swipes but AI hasn't returned a profile yet) ---
 
 @Composable
 private fun BuildingProfileState(modifier: Modifier = Modifier) {
@@ -312,9 +300,7 @@ private fun BuildingProfileState(modifier: Modifier = Modifier) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Insufficient data state (< 10 swipes)
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Insufficient data state (< 10 swipes) ---
 
 @Composable
 private fun InsufficientDataState(
@@ -349,9 +335,7 @@ private fun InsufficientDataState(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Local components
-// ─────────────────────────────────────────────────────────────────────────────
+// --- Local components ---
 
 @Composable
 private fun SectionHeader(text: String, modifier: Modifier = Modifier) {

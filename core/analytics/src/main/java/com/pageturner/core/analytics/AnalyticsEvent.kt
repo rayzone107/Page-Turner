@@ -1,15 +1,6 @@
 package com.pageturner.core.analytics
 
-/**
- * All trackable events in the app.
- *
- * Each subclass carries exactly the properties needed to describe the event —
- * no raw strings, no untyped maps at the call site.
- *
- * The [internal.EventMapper] translates these into [internal.AnalyticsPayload]
- * using the naming conventions required by the analytics tool.
- * To add a new event: add a subclass here and a mapping branch in EventMapper.
- */
+/** All trackable events in the app — each subclass carries exactly the properties needed. */
 sealed class AnalyticsEvent {
 
     /** Fired when a screen becomes visible. */

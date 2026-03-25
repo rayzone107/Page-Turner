@@ -32,7 +32,7 @@ object NetworkModule {
         .addLast(KotlinJsonAdapterFactory())
         .build()
 
-    // ── Open Library ────────────────────────────────────────────────────────
+    // Open Library
 
     @Provides
     @Singleton
@@ -61,7 +61,7 @@ object NetworkModule {
     fun provideOpenLibraryApiService(retrofit: Retrofit): OpenLibraryApiService =
         retrofit.create(OpenLibraryApiService::class.java)
 
-    // ── Anthropic ───────────────────────────────────────────────────────────
+    // Anthropic
 
     @Provides
     @Singleton

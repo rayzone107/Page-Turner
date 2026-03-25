@@ -2,12 +2,7 @@ package com.pageturner.core.analytics.internal
 
 import com.pageturner.core.analytics.AnalyticsEvent
 
-/**
- * Maps every [AnalyticsEvent] subclass to a tool-agnostic [AnalyticsPayload].
- *
- * This is the single place to change if the analytics tool requires different
- * event names or property key conventions (e.g. camelCase vs snake_case).
- */
+/** Maps [AnalyticsEvent] subclasses to tool-agnostic [AnalyticsPayload]s. */
 internal fun AnalyticsEvent.toPayload(): AnalyticsPayload = when (this) {
 
     is AnalyticsEvent.ScreenView -> AnalyticsPayload(

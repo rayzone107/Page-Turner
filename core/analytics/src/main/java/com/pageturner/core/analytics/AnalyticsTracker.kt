@@ -1,12 +1,6 @@
 package com.pageturner.core.analytics
 
-/**
- * Entry point for analytics tracking.
- *
- * Inject this interface wherever an event should be tracked.
- * The implementation is bound in [AnalyticsModule] and routes
- * events through the internal adapter pipeline.
- */
+/** Entry point for analytics tracking — inject wherever an event should be tracked. */
 interface AnalyticsTracker {
     fun track(event: AnalyticsEvent)
 }
